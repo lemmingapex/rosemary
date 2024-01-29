@@ -2,13 +2,16 @@ package com.lemmingapex.rosemary;
 
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
 import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Calendar;
+import java.util.List;
 import java.util.TimeZone;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 
 /**
  * These are the main tests for Rosemary.  These tests parse any and every date that can be found.
@@ -267,6 +270,8 @@ public class RosemaryParserTest {
 		assertEquals(OffsetDateTime.parse("2021-06-18T19:00:00.000+00:00"), rosemaryDateTimeParser.parse("2021-06-18T19:00:00+0000", "yyyy-MM-dd'T'HH:mm:ssXX"));
 		assertEquals(OffsetDateTime.parse("2021-06-18T19:00:00.000+04:00"), rosemaryDateTimeParser.parse("20210618 19:00:00+0400", "yyyyMMdd HH:mm:ssXX"));
 		assertEquals(OffsetDateTime.parse("2021-09-01T10:26:11.000-05:00"), rosemaryDateTimeParser.parse("20210901 102611 America/Panama", "yyyyMMdd HHmmss VV"));
+		assertEquals(OffsetDateTime.parse("2025-01-03T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("25-01-03", List.of("yyyy-MM HH:mm", "yy-MM-dd")));
+		assertEquals(OffsetDateTime.parse("2023-05-25T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("25-23-05", List.of("MM/dd", "dd-MM-yy h:mm", "dd-yy-MM")));
 	}
 
 	@Test

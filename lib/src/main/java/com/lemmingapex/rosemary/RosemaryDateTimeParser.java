@@ -1,5 +1,8 @@
 package com.lemmingapex.rosemary;
 
+import com.lemmingapex.rosemary.utils.ParsingUtilities;
+import com.lemmingapex.rosemary.utils.TimeZoneUtils;
+
 import java.text.DateFormat;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -12,9 +15,9 @@ import java.util.TimeZone;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
-import com.lemmingapex.rosemary.utils.ParsingUtilities;
-import com.lemmingapex.rosemary.utils.TimeZoneUtils;
-
+/**
+ * Rosemary is a robust and pattern-free datetime parser for java. Dates and times can messy. Rosemary simplifies the process of parsing dates and times from diverse formats, offering flexibility, precision, and easy configuration options for developers.
+ */
 public class RosemaryDateTimeParser {
 
 	private enum TimePlace {
@@ -111,7 +114,7 @@ public class RosemaryDateTimeParser {
 	/**
 	 * Parse a time string.
 	 *
-	 * @param state   parser state
+	 * @param state parser state
 	 * @param timeStr string containing colon-separated time
 	 * @throws RosemaryDateTimeException if there is a problem with the time
 	 */
@@ -176,7 +179,7 @@ public class RosemaryDateTimeParser {
 	 * Parse a time zone offset string.
 	 *
 	 * @param zoneStr string containing colon-separated time zone offset
-	 * @param state   parser state
+	 * @param state parser state
 	 * @throws RosemaryDateTimeException if there is a problem with the time
 	 */
 	private void parseTimeZoneOffset(String zoneStr, RosemaryDateTimeState state) throws RosemaryDateTimeException {
@@ -376,8 +379,8 @@ public class RosemaryDateTimeParser {
 	/**
 	 * Split a large numeric value into a year/month/date values.
 	 *
-	 * @param val     numeric value to use
-	 * @param state   parser state
+	 * @param val numeric value to use
+	 * @param state parser state
 	 * @throws RosemaryDateTimeException if there was a problem splitting the value
 	 */
 	private void parseNumericBlob(int val, RosemaryDateTimeState state) throws RosemaryDateTimeException {
@@ -532,7 +535,7 @@ public class RosemaryDateTimeParser {
 
 				// NOTE: both day and year are set
 
-				// try using day value as month so we can move year
+				// try using day value as month
 				// value to day and use new value as year
 				if (state.getDay() <= 12) {
 					state.setMonth(state.getDay());
@@ -651,11 +654,11 @@ public class RosemaryDateTimeParser {
 	/**
 	 * The main entry point into the real parsing of a datetime.  This method is responsible for tokenizing the datetime string and parsing each token.
 	 *
-	 * @param dateTimeString
-	 * @param rosemaryParserDateOrder
-	 * @param defaultDateTimeState
-	 * @return
-	 * @throws RosemaryDateTimeException
+	 * @param dateTimeString the datetime to parse
+	 * @param rosemaryParserDateOrder the order in which to expect and resolve ambiguous date formats. e.g. 03/04/05 Could be March 4th 2005 or April 3rd 2005 or April 5th 2003
+	 * @param defaultDateTimeState the default date or time to use if incomplete information is provided in the dateTimeString.  e.g. {@link RosemaryDateTimeParser#parse(String March 5th)} doesn't specify a year, and the current year is used by default.  Use this to alter the default year, month, timezone, etc.
+	 * @return parsed dateTimeString
+	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
 	 */
 	private OffsetDateTime parseInternal(final String dateTimeString, final RosemaryDateOrder rosemaryParserDateOrder, final RosemaryDateTimeState defaultDateTimeState) throws RosemaryDateTimeException {
 		if (dateTimeString == null) {
@@ -779,6 +782,15 @@ public class RosemaryDateTimeParser {
 		return ParsingUtilities.calendarToOffsetDateTime(dateTimeState.asCalendar());
 	}
 
+	/**
+	 * Parses a datetime using the given format as defined by {@link java.time.format.DateTimeFormatter}.
+	 *
+	 * @param dateTimeString the datetime to parse
+	 * @param formats list of formats to try in order for {@link java.time.format.DateTimeFormatter} or {@link java.text.SimpleDateFormat}
+	 * @param locale the locale to use
+	 * @return parsed dateTimeString
+	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
+	 */
 	private OffsetDateTime parseInternal(final String dateTimeString, final List<String> formats, final Locale locale) throws RosemaryDateTimeException {
 		OffsetDateTime offsetDateTime;
 		// try each format in the list
@@ -797,6 +809,14 @@ public class RosemaryDateTimeParser {
 		}
 	}
 
+	/**
+	 * Parses a datetime using the given format as defined by {@link java.time.format.DateTimeFormatter}.
+	 *
+	 * @param dateTimeString the datetime to parse
+	 * @param formats list of formats to try in order for {@link java.time.format.DateTimeFormatter} or {@link java.text.SimpleDateFormat}
+	 * @return parsed dateTimeString
+	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
+	 */
 	private OffsetDateTime parseInternal(final String dateTimeString, final List<String> formats) throws RosemaryDateTimeException {
 		Locale locale = Locale.getDefault(Locale.Category.FORMAT);
 		formatLoop:
@@ -812,10 +832,26 @@ public class RosemaryDateTimeParser {
 		return parseInternal(dateTimeString, formats, locale);
 	}
 
+	/**
+	 * Parses a datetime using the given format as defined by {@link java.time.format.DateTimeFormatter}.
+	 *
+	 * @param dateTimeString the datetime to parse
+	 * @param formats list of formats to try in order for {@link java.time.format.DateTimeFormatter} or {@link java.text.SimpleDateFormat}
+	 * @return parsed dateTimeString
+	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
+	 */
 	public OffsetDateTime parse(String dateTimeString, List<String> formats) throws RosemaryDateTimeException {
 		return parseInternal(dateTimeString, formats);
 	}
 
+	/**
+	 * Parses a datetime using the given format as defined by {@link java.time.format.DateTimeFormatter}.
+	 *
+	 * @param dateTimeString the datetime to parse
+	 * @param format for {@link java.time.format.DateTimeFormatter} or {@link java.text.SimpleDateFormat}
+	 * @return parsed dateTimeString
+	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
+	 */
 	public OffsetDateTime parse(String dateTimeString, String format) throws RosemaryDateTimeException {
 		return parse(dateTimeString, List.of(format));
 	}

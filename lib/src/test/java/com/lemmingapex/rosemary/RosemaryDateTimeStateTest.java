@@ -1,14 +1,14 @@
 package com.lemmingapex.rosemary;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import org.junit.Test;
 
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TimeZone;
 
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 /**
  * Tests methods in {@link RosemaryDateTimeState}.

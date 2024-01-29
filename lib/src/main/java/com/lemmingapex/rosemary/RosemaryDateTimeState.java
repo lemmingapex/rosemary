@@ -200,7 +200,7 @@ public class RosemaryDateTimeState {
 	/**
 	 * Is hour set?
 	 *
-	 * @return <code>true</code> if a hour has been assigned
+	 * @return <code>true</code> if an hour has been assigned
 	 */
 	public boolean isHourSet() {
 		return (this.hour != null);

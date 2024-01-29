@@ -42,7 +42,13 @@ TODO
 ## License
 [MIT](LICENSE)
 
-## Run the tests
+## Building and Tests
+To build:  
+```bash
+./gradlew build
+```
+
+To test:  
 ```bash
 ./gradlew test --rerun-tasks
 ```
