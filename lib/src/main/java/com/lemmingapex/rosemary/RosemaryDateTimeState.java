@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.TimeZone;
 
 /**
- * Datetime state used by {@link RosemaryDateTimeParser}.
+ * Datetime state used by {@link RosemaryDateTimeParser} during parsing.
  */
 public class RosemaryDateTimeState {
 	/**

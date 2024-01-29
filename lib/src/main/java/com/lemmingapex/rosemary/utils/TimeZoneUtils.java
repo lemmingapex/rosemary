@@ -11,9 +11,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
+/**
+ * Contains utility methods for dealing with timezones.
+ */
 public class TimeZoneUtils {
 	private static LinkedCaseInsensitiveMap<TimeZone> timezoneNameToTimezoneMap = null;
 
+	/**
+	 * Returns a map of timezone names to {@link TimeZone} objects.  This is the default implmentation that Rosemary will use and recognize.
+	 * @return
+	 */
 	public static synchronized LinkedCaseInsensitiveMap<TimeZone> getTimezoneNameToTimezoneMap() {
 		if (timezoneNameToTimezoneMap == null) {
 			final Set<String> orderedTimezoneIds = new LinkedHashSet<>();

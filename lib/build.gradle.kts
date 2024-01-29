@@ -32,3 +32,9 @@ java {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
+
+test {
+    testLogging {
+        events "passed", "skipped", "failed", "standardOut", "standardError"
+    }
+}

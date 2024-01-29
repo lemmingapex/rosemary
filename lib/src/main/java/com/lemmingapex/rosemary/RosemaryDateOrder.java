@@ -1,5 +1,8 @@
 package com.lemmingapex.rosemary;
 
+/**
+ * Specifies the order of the date components in a date/time string.
+ */
 public enum RosemaryDateOrder {
 	DD_MM_YY(RosemaryDateTimeState.YEAR_AFTER_MONTH | RosemaryDateTimeState.YEAR_AFTER_DAY | RosemaryDateTimeState.MONTH_AFTER_DAY),
 	MM_DD_YY(RosemaryDateTimeState.YEAR_AFTER_MONTH | RosemaryDateTimeState.YEAR_AFTER_DAY | RosemaryDateTimeState.MONTH_BEFORE_DAY),

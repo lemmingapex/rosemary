@@ -13,6 +13,9 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.TimeZone;
 
+/**
+ * Contains utility methods for parsing date/time strings.
+ */
 public class ParsingUtilities {
 	/**
 	 * Tries to parse a date using the provided format and locale with {@link java.time}.
@@ -47,7 +50,7 @@ public class ParsingUtilities {
 			Date date = simpleDateFormat.parse(dateTimeString);
 			GregorianCalendar c = new GregorianCalendar();
 			c.setTime(date);
-			return ParsingUtilities.calendarToOffsetDateTime(c);
+			return ParsingUtilities.calendarToOffsetDateTime(c).withOffsetSameInstant(ZoneOffset.UTC);
 		} catch (Exception e) {
 
 		}
@@ -91,6 +94,11 @@ public class ParsingUtilities {
 		return null;
 	}
 
+	/**
+	 * Converts a {@link GregorianCalendar} to an {@link OffsetDateTime}.
+	 * @param calendar
+	 * @return
+	 */
 	static public OffsetDateTime calendarToOffsetDateTime(GregorianCalendar calendar) {
 		return calendar.toZonedDateTime().toOffsetDateTime();
 	}
