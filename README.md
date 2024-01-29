@@ -43,7 +43,9 @@ TODO
 [MIT](LICENSE)
 
 ## Run the tests
-TODO
+```bash
+./gradlew test --rerun-tasks
+```
 
 ## Alternatives
 * java.time.format.DateTimeFormatter - The built-in java formatter that always requires a pattern
