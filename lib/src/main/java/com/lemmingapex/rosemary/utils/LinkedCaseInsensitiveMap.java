@@ -302,6 +302,7 @@
 	  * @since 4.3.10
 	  * @see #LinkedCaseInsensitiveMap(Locale)
 	  * @see #convertKey(String)
+	  * @return the locale
 	  */
 	 public Locale getLocale() {
 		 return this.locale;

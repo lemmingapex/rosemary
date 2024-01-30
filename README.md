@@ -9,7 +9,9 @@ a robust and pattern-free datetime parser for java
 </p>
 
 
+
 # Rosemary
+[![Build Status](https://github.com/lemmingapex/rosemary/actions/workflows/gradle.yml/badge.svg?branch=main)](https://github.com/lemmingapex/rosemary/actions)  
 Rosemary is a robust and pattern-free datetime parser for java.  Dates and times can messy.  Rosemary simplifies the process of parsing dates and times from diverse formats, offering flexibility, precision, and easy configuration options for developers.
 ```java
 RosemaryDateTimeParser rosemary = new RosemaryDateTimeParser();
@@ -45,7 +47,7 @@ TODO
 ## Building and Tests
 To build:  
 ```bash
-./gradlew build
+./gradlew clean && ./gradlew build
 ```
 
 To test:  

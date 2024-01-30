@@ -656,7 +656,7 @@ public class RosemaryDateTimeParser {
 	 *
 	 * @param dateTimeString the datetime to parse
 	 * @param rosemaryParserDateOrder the order in which to expect and resolve ambiguous date formats. e.g. 03/04/05 Could be March 4th 2005 or April 3rd 2005 or April 5th 2003
-	 * @param defaultDateTimeState the default date or time to use if incomplete information is provided in the dateTimeString.  e.g. {@link RosemaryDateTimeParser#parse(String March 5th)} doesn't specify a year, and the current year is used by default.  Use this to alter the default year, month, timezone, etc.
+	 * @param defaultDateTimeState the default date or time to use if incomplete information is provided in the dateTimeString.  e.g. parse(String March 5th) doesn't specify a year, and the current year is used by default.  Use this to alter the default year, month, timezone, etc.
 	 * @return parsed dateTimeString
 	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
 	 */
@@ -861,7 +861,7 @@ public class RosemaryDateTimeParser {
 	 *
 	 * @param dateTimeString the datetime to parse
 	 * @param rosemaryParserDateOrder the order in which to expect and resolve ambiguous date formats. e.g. 03/04/05 Could be March 4th 2005 or April 3rd 2005 or April 5th 2003
-	 * @param defaultDateTimeState the default date or time to use if incomplete information is provided in the dateTimeString.  e.g. {@link RosemaryDateTimeParser#parse(String March 5th)} doesn't specify a year, and the current year is used by default.  Use this to alter the default year, month, timezone, etc.
+	 * @param defaultDateTimeState the default date or time to use if incomplete information is provided in the dateTimeString.  e.g. parse(String March 5th) doesn't specify a year, and the current year is used by default.  Use this to alter the default year, month, timezone, etc.
 	 * @return parsed dateTimeString
 	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
 	 */
