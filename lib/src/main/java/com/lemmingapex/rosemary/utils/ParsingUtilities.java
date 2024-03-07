@@ -20,9 +20,9 @@ public class ParsingUtilities {
 	/**
 	 * Tries to parse a date using the provided format and locale with {@link java.time}.
 	 *
-	 * @param dateTimeString
+	 * @param dateTimeString the datetime to parse
 	 * @param format to be interrupted by {@link DateTimeFormatter}.  {@link SimpleDateFormat} will be used if {@link DateTimeFormatter} fails.
-	 * @param locale
+	 * @param locale the locale to use
 	 * @return
 	 */
 	static public OffsetDateTime javaTimeParse(String dateTimeString, String format, Locale locale) {
@@ -63,7 +63,7 @@ public class ParsingUtilities {
 	/**
 	 * Tries to parse a datetime using the default {@link ParsingUtilities#DATETIME_FORMAT} with {@link java.time}.
 	 *
-	 * @param dateTimeString
+	 * @param dateTimeString the datetime to parse
 	 * @return
 	 */
 	static public OffsetDateTime javaTimeParse(String dateTimeString) {
@@ -97,7 +97,7 @@ public class ParsingUtilities {
 	/**
 	 * Converts a {@link GregorianCalendar} to an {@link OffsetDateTime}.
 	 * @param calendar
-	 * @return
+	 * @return equivalent calendar as {@link OffsetDateTime}.
 	 */
 	static public OffsetDateTime calendarToOffsetDateTime(GregorianCalendar calendar) {
 		return calendar.toZonedDateTime().toOffsetDateTime();

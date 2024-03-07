@@ -5,9 +5,15 @@
  * For more details on building Java & JVM projects, please refer to https://docs.gradle.org/8.5/userguide/building_java_projects.html in the Gradle documentation.
  */
 
+group = "com.lemmingapex"
+version = "1.0.0"
+
 plugins {
     // Apply the java-library plugin for API and implementation separation.
     `java-library`
+    // Use this plugin to publish the library to maven : https://oss.sonatype.org/
+    `maven-publish`
+    `signing`
 }
 
 repositories {
@@ -18,12 +24,6 @@ repositories {
 dependencies {
     // Use JUnit test framework.
     testImplementation(libs.junit)
-
-    // This dependency is exported to consumers, that is to say found on their compile classpath.
-    api(libs.commons.math3)
-
-    // This dependency is used internally, and not exposed to consumers on their own compile classpath.
-    implementation(libs.guava)
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -31,10 +31,65 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 tasks.test {
     testLogging {
         events("PASSED", "SKIPPED", "FAILED")
     }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            artifactId = "rosemary"
+            from(components["java"])
+            versionMapping {
+                usage("java-api") {
+                    fromResolutionOf("runtimeClasspath")
+                }
+                usage("java-runtime") {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = "Rosemary"
+                description = "a robust and pattern-free datetime parser for java"
+                url = "https://github.com/lemmingapex/rosemary"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/license/MIT"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "lemmingapex"
+                        name = "Scott Wiedemann"
+                        email = "lemmingapex@gmail.com"
+                    }
+                }
+                scm {
+                    connection = "scm:git:git://github.com:lemmingapex/rosemary.git"
+                    developerConnection = "scm:git:ssh://github.com:lemmingapex/rosemary.git"
+                    url = "https://github.com/lemmingapex/rosemary"
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            url = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2")
+            credentials {
+                username = project.findProperty("ossrhUsername") as String?
+                password = project.findProperty("ossrhPassword") as String?
+            }
+        }
+    }
+}
+
+signing {
+    sign(publishing.publications["mavenJava"])
 }
