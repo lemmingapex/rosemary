@@ -11,7 +11,7 @@ a robust and pattern-free datetime parser for java
 
 
 # Rosemary
-[![Build Status](https://github.com/lemmingapex/rosemary/actions/workflows/gradle.yml/badge.svg?branch=main)](https://github.com/lemmingapex/rosemary/actions)  
+[![Build Status](https://github.com/lemmingapex/rosemary/actions/workflows/gradle.yml/badge.svg?branch=main)](https://github.com/lemmingapex/rosemary/actions) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.lemmingapex/rosemary/badge.svg)](https://central.sonatype.com/artifact/com.lemmingapex/rosemary)  
 Rosemary is a robust and pattern-free datetime parser for java.  Dates and times can messy.  Rosemary simplifies the process of parsing dates and times from diverse formats, offering flexibility, precision, and easy configuration options for developers.
 ```java
 RosemaryDateTimeParser rosemary = new RosemaryDateTimeParser();
@@ -39,19 +39,32 @@ rosemary.parse("1204675245123");                                        // 2008-
 * Simple api
 
 ## Get Rosemary
-TODO
+Gradle dependency:
+```groovy
+implementation 'com.lemmingapex:rosemary:1.0.0'
+```
+
+Maven dependency:
+```xml
+<dependency>
+    <groupId>com.lemmingapex</groupId>
+    <artifactId>rosemary</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
 
 ## License
 [MIT](LICENSE)
 
 ## Building and Tests
 To build:  
-```bash
+```zsh
 ./gradlew clean && ./gradlew build
 ```
 
 To test:  
-```bash
+```zsh
 ./gradlew test --rerun-tasks
 ```
 
