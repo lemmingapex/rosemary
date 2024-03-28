@@ -1,7 +1,5 @@
 <p align="center">
-    <a href="https://getbootstrap.com/">
-        <img src="rosemary.svg" alt="rosemary logo" width="230"/>
-    </a>
+    <img src="rosemary.svg" alt="rosemary logo" width="230"/>
 </p>
 <h3 align="center">Rosemary</h3>
 <p align="center">
