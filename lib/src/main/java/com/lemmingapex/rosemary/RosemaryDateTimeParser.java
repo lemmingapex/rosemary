@@ -269,10 +269,15 @@ public final class RosemaryDateTimeParser {
 		return dateTime == null ? null : dateTime.toOffsetDateTime();
 	}
 
+	/**
+	 * Report a failure to the caller.  A failure in one part of the string has that part's position, and the message says where.
+	 * Otherwise the position is 0, the start of the string.
+	 */
 	private static RosemaryDateTimeException failure(String text, Exception e) {
-		final String message = "Unable to parse \"" + text + "\": " + e.getMessage();
+		final int index = e instanceof ParseFailure failure ? failure.index() : -1;
+		final String message = "Unable to parse \"" + text + "\": " + e.getMessage() + (index >= 0 ? " at index " + index : "");
 		// a ParseFailure is internal, and its message says everything
-		return e instanceof ParseFailure ? new RosemaryDateTimeException(message, text) : new RosemaryDateTimeException(message, text, e);
+		return e instanceof ParseFailure ? new RosemaryDateTimeException(message, text, Math.max(index, 0)) : new RosemaryDateTimeException(message, text, 0, e);
 	}
 
 	/**

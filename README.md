@@ -139,15 +139,17 @@ rosemary.parse("25-01-03", List.of("yyyy-MM HH:mm", "yy-MM-dd"));         // 202
 Dates are checked strictly, so `2021-02-31` doesn't match `yyyy-MM-dd`.  A pattern without a time zone uses the default zone.
 
 ### Errors
-A string that can't be parsed throws a `RosemaryDateTimeException`, which is an unchecked `java.time.DateTimeException`:
+A string that can't be parsed throws a `RosemaryDateTimeException`, which is an unchecked `java.time.format.DateTimeParseException`, like the exceptions `java.time` throws:
 ```java
 try {
-    rosemary.parse("February 30 2024");
+    rosemary.parse("2024-03-05 10:xx");
 } catch (RosemaryDateTimeException e) {
-    e.getMessage();      // Unable to parse "February 30 2024": Bad day 30 for month 2 of 2024
-    e.getParsedString(); // February 30 2024
+    e.getMessage();      // Unable to parse "2024-03-05 10:xx": Bad time 10:XX at index 11
+    e.getParsedString(); // 2024-03-05 10:xx
+    e.getErrorIndex();   // 11
 }
 ```
+`getErrorIndex()` is the position of the part of the string that couldn't be used.  It is 0 when the problem is the string as a whole, like an impossible date (`February 30 2024`), or no date or time at all.
 
 ### Configuration
 ```java

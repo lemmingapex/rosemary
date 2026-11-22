@@ -99,5 +99,10 @@ class ReadmeExamplesTest {
 		final RosemaryDateTimeException e = assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("February 30 2024"));
 		assertEquals("Unable to parse \"February 30 2024\": Bad day 30 for month 2 of 2024", e.getMessage());
 		assertEquals("February 30 2024", e.getParsedString());
+		assertEquals(0, e.getErrorIndex());
+
+		final RosemaryDateTimeException time = assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("2024-03-05 10:xx"));
+		assertEquals("Unable to parse \"2024-03-05 10:xx\": Bad time 10:XX at index 11", time.getMessage());
+		assertEquals(11, time.getErrorIndex());
 	}
 }

@@ -94,6 +94,9 @@ class RobustnessTest {
 			return dateTime;
 		} catch (RosemaryDateTimeException e) {
 			assertEquals(text, e.getParsedString());
+			if (e.getErrorIndex() < 0 || e.getErrorIndex() > text.length()) {
+				throw new AssertionError("Bad error index " + e.getErrorIndex() + " for \"" + text + "\"");
+			}
 			return null;
 		} catch (RuntimeException e) {
 			throw new AssertionError("Unexpected exception for \"" + text + "\" in " + dateOrder, e);

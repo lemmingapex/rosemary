@@ -35,19 +35,21 @@ final class FormatParser {
 	 * @param defaultZone time zone to use if the pattern doesn't have one
 	 * @param clock the clock that provides today's date
 	 * @return the datetime
-	 * @throws ParseFailure if none of the patterns match
+	 * @throws ParseFailure if none of the patterns match, with the furthest position any pattern reached
 	 * @throws IllegalArgumentException if a pattern is invalid
 	 */
 	static ZonedDateTime parse(String text, List<String> patterns, Locale locale, ZoneId defaultZone, Clock clock) throws ParseFailure {
+		int furthestIndex = 0;
 		for (String pattern : patterns) {
 			final DateTimeFormatter formatter = formatter(pattern, locale);
 			try {
 				return toZonedDateTime(formatter.parseBest(text, ZonedDateTime::from, LocalDateTime::from, LocalDate::from, LocalTime::from), defaultZone, clock);
 			} catch (DateTimeParseException e) {
 				// try the next pattern
+				furthestIndex = Math.max(furthestIndex, e.getErrorIndex());
 			}
 		}
-		throw new ParseFailure("Doesn't match " + (patterns.size() == 1 ? "the pattern " : "any of the patterns ") + String.join(", ", patterns));
+		throw new ParseFailure("Doesn't match " + (patterns.size() == 1 ? "the pattern " : "any of the patterns ") + String.join(", ", patterns)).at(furthestIndex);
 	}
 
 	/**

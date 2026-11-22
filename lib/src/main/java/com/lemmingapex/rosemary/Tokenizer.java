@@ -2,6 +2,7 @@ package com.lemmingapex.rosemary;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Splits a datetime string into tokens, e.g. <code>"Mar 5, 2008 7:02 PM America/Denver"</code> into
@@ -9,11 +10,20 @@ import java.util.List;
  */
 final class Tokenizer {
 
+	/**
+	 * A token, in upper case, and where it starts in the datetime string.
+	 *
+	 * @param text the token, in upper case
+	 * @param start the position of the token's first character in the datetime string
+	 */
+	record Token(String text, int start) {
+	}
+
 	private Tokenizer() {
 	}
 
 	/**
-	 * Split an upper case datetime string into tokens.
+	 * Split a datetime string into upper case tokens.
 	 * <ul>
 	 * <li>whitespace, commas, parentheses and quotes separate tokens</li>
 	 * <li>a slash separates tokens, unless it is between two letters, as in a region id like America/Denver</li>
@@ -24,13 +34,16 @@ final class Tokenizer {
 	 * <li>a comma after the seconds of a time and before a digit starts the fraction of a second, as in 07:02:10,123</li>
 	 * <li>tokens made only of dashes are dropped</li>
 	 * </ul>
+	 * Tokens are upper-cased after splitting, so their positions are positions in the original string, even if upper-casing changes
+	 * the length of some characters, like ß.
 	 *
-	 * @param text upper case datetime string
+	 * @param text datetime string
 	 * @return the tokens
 	 */
-	static List<String> tokenize(String text) {
-		final List<String> tokens = new ArrayList<>();
+	static List<Token> tokenize(String text) {
+		final List<Token> tokens = new ArrayList<>();
 		final StringBuilder token = new StringBuilder();
+		int start = 0;
 		for (int i = 0; i < text.length(); i++) {
 			final char c = text.charAt(i);
 			final char previous = i > 0 ? text.charAt(i - 1) : ' ';
@@ -46,17 +59,18 @@ final class Tokenizer {
 				case ',', '(', ')', '\'', '"' -> true;
 				case '/' -> !(Character.isLetter(previous) && Character.isLetter(next));
 				case '-' -> !(isWhitespace(previous) || Character.isLetter(previous) || previous == '(' || previous == ')' || (inTime && isDigit(previous)));
-				case 'T' -> isDigit(previous) && isDigit(next);
+				case 'T', 't' -> isDigit(previous) && isDigit(next);
 				case '.' -> isDigit(previous) && isDigit(next) && !inTime;
 				default -> isWhitespace(c);
 			};
 			if (separator) {
-				addToken(tokens, token);
+				addToken(tokens, token, start);
+				start = i + 1;
 			} else {
 				token.append(c);
 			}
 		}
-		addToken(tokens, token);
+		addToken(tokens, token, start);
 		return tokens;
 	}
 
@@ -69,9 +83,9 @@ final class Tokenizer {
 			&& token.charAt(length - 3) == ':' && isDigit(token.charAt(length - 2)) && isDigit(token.charAt(length - 1));
 	}
 
-	private static void addToken(List<String> tokens, StringBuilder token) {
+	private static void addToken(List<Token> tokens, StringBuilder token, int start) {
 		if (!token.chars().allMatch(c -> c == '-')) {
-			tokens.add(token.toString());
+			tokens.add(new Token(token.toString().toUpperCase(Locale.ROOT), start));
 		}
 		token.setLength(0);
 	}

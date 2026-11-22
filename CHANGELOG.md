@@ -6,7 +6,7 @@
 
 ### Breaking changes
 - Configure parsers with `RosemaryDateTimeParser.builder()`: date order, default time zone, a `Clock` for today's date, the locale for patterns, the century of two-digit years, and time zone abbreviations.  `toBuilder()` starts from an existing parser.
-- `RosemaryDateTimeException` is unchecked: it extends `java.time.DateTimeException`.  It has `getParsedString()`.
+- `RosemaryDateTimeException` is unchecked: it extends `java.time.format.DateTimeParseException`, with `getParsedString()`, and `getErrorIndex()` for the position of the problem in the string.
 - Removed `parse(String, RosemaryDateOrder, RosemaryDateTimeState)`, `RosemaryDateTimeState`, `RosemaryTimeZoneProvider`, and the `utils` package (`TimeZoneUtils`, `ParsingUtilities`, `LinkedCaseInsensitiveMap`).
 - `RosemaryDateOrder` no longer has a public `order` field.
 - Patterns are `java.time.format.DateTimeFormatter` patterns only, with strict dates.  The `SimpleDateFormat` fallback is removed, and the pattern locale is English unless set.

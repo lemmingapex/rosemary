@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,24 +44,28 @@ final class PatternFreeParser {
 	 * @param text the datetime string
 	 * @param dateOrder the order of the day, month and year in ambiguous dates
 	 * @return the fields that were found
-	 * @throws ParseFailure if a token can't be used
+	 * @throws ParseFailure if a token can't be used, with the token's position
 	 */
 	DateTimeFields parse(String text, RosemaryDateOrder dateOrder) throws ParseFailure {
-		final List<String> tokens = Tokenizer.tokenize(text.toUpperCase(Locale.ROOT));
+		final List<Tokenizer.Token> tokens = Tokenizer.tokenize(text);
 		final DateTimeFields fields = new DateTimeFields(dateOrder);
 		for (int i = 0; i < tokens.size(); i++) {
-			final String token = tokens.get(i);
-			final String next = i + 1 < tokens.size() ? tokens.get(i + 1) : "";
-			if (NUMBER.matcher(token).matches()) {
-				if (token.length() <= 2 && meridian(next) != null) {
-					// an hour followed by AM or PM, like 7 pm
-					parseTime(token + meridian(next), fields);
-					i++;
+			final String token = tokens.get(i).text();
+			final String next = i + 1 < tokens.size() ? tokens.get(i + 1).text() : "";
+			try {
+				if (NUMBER.matcher(token).matches()) {
+					if (token.length() <= 2 && meridian(next) != null) {
+						// an hour followed by AM or PM, like 7 pm
+						parseTime(token + meridian(next), fields);
+						i++;
+					} else {
+						parseNumericToken(token, tokens.size(), fields);
+					}
 				} else {
-					parseNumericToken(token, tokens.size(), fields);
+					parseNonNumericToken(token, fields);
 				}
-			} else {
-				parseNonNumericToken(token, fields);
+			} catch (ParseFailure e) {
+				throw e.at(tokens.get(i).start());
 			}
 		}
 		return fields;
