@@ -406,6 +406,11 @@ final class PatternFreeParser {
 			}
 			throw new ParseFailure("Unknown number " + token);
 		}
+		// a first value written with four or more digits is a year, even if it's small, like 0008-03-05
+		if (token.length() >= 4 && !fields.isYearSet() && !fields.isMonthSet() && !fields.isDaySet()) {
+			fields.setYear((int) value, false);
+			return;
+		}
 		parseDateNumber((int) value, token.length() <= 2, fields);
 	}
 

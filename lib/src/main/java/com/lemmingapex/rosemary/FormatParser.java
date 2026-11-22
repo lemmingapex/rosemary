@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +42,7 @@ final class FormatParser {
 		for (String pattern : patterns) {
 			final DateTimeFormatter formatter = formatter(pattern, locale);
 			try {
-				return toZonedDateTime(formatter.parseBest(text, ZonedDateTime::from, OffsetDateTime::from, LocalDateTime::from, LocalDate::from, LocalTime::from), defaultZone, clock);
+				return toZonedDateTime(formatter.parseBest(text, ZonedDateTime::from, LocalDateTime::from, LocalDate::from, LocalTime::from), defaultZone, clock);
 			} catch (DateTimeParseException e) {
 				// try the next pattern
 			}
@@ -52,16 +51,15 @@ final class FormatParser {
 	}
 
 	/**
-	 * Parse an ISO 8601 datetime, like <code>2008-03-05T07:02:00.000+01:00</code>, <code>2008-03-05T07:02:00Z[Europe/Paris]</code> or <code>2008-03-05T07:02:00</code>.
+	 * Parse an ISO 8601 datetime with an offset and a region id, like <code>2008-03-05T07:02:00+01:00[Europe/Paris]</code>,
+	 * as written by {@link ZonedDateTime#toString()}.  Pattern-free parsing handles the other ISO 8601 formats.
 	 *
 	 * @param text the datetime string
-	 * @param defaultZone time zone to use if the datetime doesn't have one
-	 * @return the datetime, or <code>null</code> if it isn't an ISO 8601 datetime
+	 * @return the datetime, or <code>null</code> if it isn't an ISO 8601 datetime with a time zone
 	 */
-	static ZonedDateTime parseIso(String text, ZoneId defaultZone) {
+	static ZonedDateTime parseIsoWithZone(String text) {
 		try {
-			final TemporalAccessor parsed = DateTimeFormatter.ISO_DATE_TIME.parseBest(text.strip(), ZonedDateTime::from, LocalDateTime::from);
-			return parsed instanceof ZonedDateTime zoned ? zoned : ((LocalDateTime) parsed).atZone(defaultZone);
+			return ZonedDateTime.parse(text.strip(), DateTimeFormatter.ISO_ZONED_DATE_TIME);
 		} catch (DateTimeParseException e) {
 			return null;
 		}
@@ -82,9 +80,6 @@ final class FormatParser {
 	private static ZonedDateTime toZonedDateTime(TemporalAccessor parsed, ZoneId defaultZone, Clock clock) {
 		if (parsed instanceof ZonedDateTime zoned) {
 			return zoned;
-		}
-		if (parsed instanceof OffsetDateTime offsetDateTime) {
-			return offsetDateTime.toZonedDateTime();
 		}
 		if (parsed instanceof LocalDateTime localDateTime) {
 			return localDateTime.atZone(defaultZone);

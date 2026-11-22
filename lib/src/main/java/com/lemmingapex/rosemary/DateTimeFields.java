@@ -68,10 +68,6 @@ final class DateTimeFields {
 		return hour != null;
 	}
 
-	boolean isZoneSet() {
-		return zone != null;
-	}
-
 	boolean isOffsetSet() {
 		return zoneIsOffset;
 	}
@@ -102,18 +98,6 @@ final class DateTimeFields {
 
 	int hour() {
 		return hour;
-	}
-
-	Integer minute() {
-		return minute;
-	}
-
-	Integer second() {
-		return second;
-	}
-
-	Integer nano() {
-		return nano;
 	}
 
 	ZoneId zone() {

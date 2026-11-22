@@ -87,7 +87,7 @@ class NumericParsingTest {
 
 	@ParameterizedTest(name = "{0}")
 	@ValueSource(strings = {"0", "5", "12", "123", "12345", "1234567", "99993113", "13132024", "20241332", "20240305256000", "123456789012345", "-5", "-1709596800",
-		"99999999999 March", "March 99999999999999999999999", "March 5 2008 20240305193005", "March 12345"})
+		"99999999999 March", "March 99999999999999999999999", "March 5 2008 20240305193005", "March 12345", "20241332193005", "20240230193005", "March 20240305"})
 	void rejectsOtherNumbers(String text) {
 		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text));
 	}

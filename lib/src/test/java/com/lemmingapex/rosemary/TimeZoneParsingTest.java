@@ -135,6 +135,9 @@ class TimeZoneParsingTest {
 		2008-03-05 07:02:10.5+05:30                 | 2008-03-05T07:02:10.5+05:30
 		2008-03-05 07:02Z                           | 2008-03-05T07:02Z
 		10:00 -0500                                 | 2024-06-15T10:00-05:00
+		2008-03-05 07:02 5                          | 2008-03-05T07:02+05:00
+		2008-03-05 07:02 0530                       | 2008-03-05T07:02+05:30
+		2008-03-05 07:02 1800                       | 2008-03-05T07:02+18:00
 		""")
 	void parsesOffsets(String text, OffsetDateTime expected) {
 		assertEquals(expected, PARSER.parse(text));
@@ -142,7 +145,8 @@ class TimeZoneParsingTest {
 
 	@ParameterizedTest(name = "{0}")
 	@ValueSource(strings = {"2024-03-05 10:00 +19:00", "2024-03-05 10:00 +25:00", "2024-03-05 10:00 UTC+1900", "2024-03-05 10:00 GMT+05:75", "2024-03-05 10:00 +05:30:00",
-		"2024-03-05 10:00 -19", "2024-03-05 10:00 +12345", "2024-03-05 10:00 +ab:cd", "2024-03-05 10:00 GMT+", "2024-03-05 10:00 -05:00 -05:00"})
+		"2024-03-05 10:00 -19", "2024-03-05 10:00 +12345", "2024-03-05 10:00 +ab:cd", "2024-03-05 10:00 GMT+", "2024-03-05 10:00 -05:00 -05:00",
+		"2024-03-05 10:00 GMTX-5", "2024-03-05 10:00 19", "2024-03-05 10:00 0510", "2024-03-05 10:00 1900", "2024-03-05 10:00 5 6"})
 	void rejectsInvalidOffsets(String text) {
 		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text));
 	}
@@ -170,6 +174,18 @@ class TimeZoneParsingTest {
 		March 5 2024 +05:30         | 2024-03-05T00:00+05:30
 		""")
 	void usesTheTimeZoneForDatesWithoutTimes(String text, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text));
+	}
+
+	/**
+	 * ISO 8601 datetimes with a region id in brackets, as written by {@link java.time.ZonedDateTime#toString()}.
+	 */
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', textBlock = """
+		2008-03-05T07:02:00+01:00[Europe/Paris]    | 2008-03-05T07:02+01:00
+		2008-03-05T06:02:00Z[Europe/Paris]         | 2008-03-05T07:02+01:00
+		""")
+	void parsesIsoDatetimesWithRegionIds(String text, OffsetDateTime expected) {
 		assertEquals(expected, PARSER.parse(text));
 	}
 

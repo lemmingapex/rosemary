@@ -133,7 +133,7 @@ public final class RosemaryDateTimeParser {
 		try {
 			return patternFreeParser.parse(text, dateOrder).resolve(clock, defaultZone, twoDigitYearStart).toOffsetDateTime();
 		} catch (ParseFailure | DateTimeException e) {
-			final ZonedDateTime iso = FormatParser.parseIso(text, defaultZone);
+			final ZonedDateTime iso = FormatParser.parseIsoWithZone(text);
 			if (iso != null) {
 				return iso.toOffsetDateTime();
 			}

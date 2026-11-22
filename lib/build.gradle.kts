@@ -17,6 +17,10 @@ plugins {
     `java-library`
     // Publish the library to Maven Central: https://vanniktech.github.io/gradle-maven-publish-plugin/
     alias(libs.plugins.maven.publish)
+    // Measure test coverage: ./gradlew jacocoTestReport, then open lib/build/reports/jacoco/test/html/index.html
+    jacoco
+    // Benchmarks: ./gradlew jmh
+    alias(libs.plugins.jmh)
 }
 
 repositories {
@@ -36,6 +40,62 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
+}
+
+base {
+    // name the jars rosemary-<version>.jar, like the published artifacts
+    archivesName = "rosemary"
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
+}
+
+tasks.javadoc {
+    // fail on Javadoc warnings, like missing comments on public API
+    (options as StandardJavadocDocletOptions).addBooleanOption("Werror", true)
+}
+
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// fail the build if test coverage drops
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.95".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                minimum = "0.90".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
+jmh {
+    // a quick run, about a minute; increase the iterations for more precise numbers
+    warmupIterations = 2
+    warmup = "1s"
+    iterations = 3
+    timeOnIteration = "1s"
+    fork = 1
 }
 
 // Optionally run the tests on a different JDK than the one used to compile, e.g. ./gradlew test -PtestJavaVersion=25
