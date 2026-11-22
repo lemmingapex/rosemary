@@ -29,7 +29,7 @@ The old OSSRH service (`oss.sonatype.org`) was shut down in 2025. The `ossrhUser
 
 ## Release steps
 
-1. Update `version` in [lib/build.gradle.kts](lib/build.gradle.kts), and the version in the README's dependency snippets.
+1. Update `version` in [lib/build.gradle.kts](lib/build.gradle.kts), the version in the README's dependency snippets, and the release's heading and date in [CHANGELOG.md](CHANGELOG.md).
 2. Make sure the build and tests pass:
    ```zsh
    ./gradlew clean build
