@@ -115,4 +115,15 @@ class ErrorHandlingTest {
 		assertNull(PARSER.parse(null));
 		assertNull(PARSER.parse(null, RosemaryDateOrder.DD_MM_YY));
 	}
+
+	@ParameterizedTest(name = "\"{0}\"")
+	@ValueSource(strings = {"2008-W10-3", "Q1 2024", "12 UTC"})
+	void rejectsTokensWithDigitsThatAreNotUnderstood(String text) {
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text));
+	}
+
+	@Test
+	void reportsWhereAnUnusedAmOrPmIs() {
+		assertEquals(11, assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("2008-03-05 PM")).getErrorIndex());
+	}
 }

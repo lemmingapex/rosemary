@@ -148,6 +148,9 @@ final class DateTimeFields {
 		if (pendingPostMeridian != null) {
 			if (hour >= 0 && hour <= 12) {
 				hourOfDay = (hour % 12) + (pendingPostMeridian ? 12 : 0);
+			} else if (!pendingPostMeridian) {
+				// a 24-hour clock value with a redundant PM, like 13:00PM, is kept, but 13:00AM is wrong
+				throw new ParseFailure("Bad hour for AM: " + hour);
 			}
 			pendingPostMeridian = null;
 		}
@@ -175,6 +178,13 @@ final class DateTimeFields {
 	 */
 	void setPendingMeridian(boolean postMeridian) {
 		this.pendingPostMeridian = postMeridian;
+	}
+
+	/**
+	 * @return <code>true</code> if AM or PM was given, but no hour was set after it
+	 */
+	boolean isMeridianPending() {
+		return pendingPostMeridian != null;
 	}
 
 	void setMinute(int minute) throws ParseFailure {

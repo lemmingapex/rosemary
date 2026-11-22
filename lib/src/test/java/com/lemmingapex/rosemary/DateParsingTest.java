@@ -139,4 +139,18 @@ class DateParsingTest {
 	void rejectsInvalidDates(String text) {
 		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text));
 	}
+
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', textBlock = """
+		05-Mar-2008                | 2008-03-05T00:00Z
+		05-MAR-08 07:02            | 2008-03-05T07:02Z
+		Mar-05-2008                | 2008-03-05T00:00Z
+		2008-Mar-05                | 2008-03-05T00:00Z
+		05.Mar.2008                | 2008-03-05T00:00Z
+		5. March 2008              | 2008-03-05T00:00Z
+		5th. of March 2008         | 2008-03-05T00:00Z
+		""")
+	void parsesMonthNamesJoinedByDashesOrPeriods(String text, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text));
+	}
 }

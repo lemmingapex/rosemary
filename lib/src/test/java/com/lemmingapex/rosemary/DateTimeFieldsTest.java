@@ -44,10 +44,13 @@ class DateTimeFieldsTest {
 		fields.setHour(7);
 		assertEquals(7, fields.hour());
 
-		// a 24-hour value is kept
-		fields.setPendingMeridian(false);
+		// a 24-hour value with a redundant PM is kept, but AM is wrong
+		fields.setPendingMeridian(true);
 		fields.setHour(13);
 		assertEquals(13, fields.hour());
+
+		fields.setPendingMeridian(false);
+		assertThrows(ParseFailure.class, () -> fields.setHour(13));
 	}
 
 	@Test

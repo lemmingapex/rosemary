@@ -85,7 +85,7 @@ Rosemary understands:
 * `UTC`, `GMT`, `UT`, `Z` and `Zulu`, which always mean a zero offset
 * the abbreviations used by current time zones, like `PST`, `CET` or `JST`.  `RosemaryDateTimeParser.defaultTimeZoneAbbreviations()` lists them.
 
-An abbreviation means its region, so `CST` and `CDT` both mean `America/Chicago`, and the offset depends on the date:
+An abbreviation means its region, so `CST` and `CDT` both mean `America/Chicago`, and the offset depends on the date.  This follows how abbreviations are usually written, e.g. `CST` all year for the time in Chicago:
 ```java
 rosemary.parse("2024-01-15 10:00 CST");          // 2024-01-15T10:00-06:00
 rosemary.parse("2024-07-15 10:00 CST");          // 2024-07-15T10:00-05:00
@@ -116,7 +116,7 @@ rosemary.findTimeZone("MART");           // Optional.empty
 `parser.getTimeZoneAbbreviations()` lists the abbreviations a parser recognizes, and `ZoneId.getAvailableZoneIds()` lists the region ids.
 
 ### Numbers
-A number by itself is read by its length:
+A number by itself, or with only words like `at` or `UTC`, is read by its length:
 
 | Digits | Meaning | Example |
 |---|---|---|
@@ -136,7 +136,7 @@ When the format is known, a [`DateTimeFormatter`](https://docs.oracle.com/en/jav
 rosemary.parse("01-18-21 03:00 America/New_York", "MM-dd-yy HH:mm VV");  // 2021-01-18T03:00-05:00
 rosemary.parse("25-01-03", List.of("yyyy-MM HH:mm", "yy-MM-dd"));         // 2025-01-03T00:00Z
 ```
-Dates are checked strictly, so `2021-02-31` doesn't match `yyyy-MM-dd`.  A pattern without a time zone uses the default zone.
+Dates are checked strictly, so `2021-02-31` doesn't match `yyyy-MM-dd`.  A pattern without a time zone uses the default zone.  Missing fields are filled in as they are without a pattern, so `MM-dd` is this year, and `yyyy-MM` is the first of the month.
 
 ### Errors
 A string that can't be parsed throws a `RosemaryDateTimeException`, which is an unchecked `java.time.format.DateTimeParseException`, like the exceptions `java.time` throws:

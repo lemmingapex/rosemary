@@ -32,6 +32,18 @@ final class PatternFreeParser {
 	 */
 	private static final Pattern TIME = Pattern.compile("(\\d{1,2})(?::(\\d{1,2})(?::(\\d{1,2})(?:\\.(\\d{1,9}))?)?)?(AM|PM)?(Z|[+-].+)?");
 
+	/**
+	 * A time without colons, like ISO 8601's basic format, with a fraction of a second or a time zone: hours and minutes, then optional seconds
+	 * and a fraction of a second, then an optional offset.  E.g. 0702Z, 070210Z, 070210.019 or 070210-0500.
+	 * Without a fraction or a time zone, it is a number, like 0702.
+	 */
+	private static final Pattern COMPACT_TIME = Pattern.compile("(\\d{2})(\\d{2})(?:(\\d{2})(?:\\.(\\d{1,9}))?)?(Z|[+-].+)?");
+
+	/**
+	 * A number followed by a period, like the day in "5. March 2008".
+	 */
+	private static final Pattern NUMBER_WITH_PERIOD = Pattern.compile("\\d+\\.");
+
 	private final TimeZoneNames timeZoneNames;
 
 	PatternFreeParser(TimeZoneNames timeZoneNames) {
@@ -49,26 +61,77 @@ final class PatternFreeParser {
 	DateTimeFields parse(String text, RosemaryDateOrder dateOrder) throws ParseFailure {
 		final List<Tokenizer.Token> tokens = Tokenizer.tokenize(text);
 		final DateTimeFields fields = new DateTimeFields(dateOrder);
+		// a number is alone if the other tokens are only words, like "at", weekdays and time zone names
+		final boolean loneNumber = tokens.stream().filter(token -> !isWord(withoutNumberPeriod(token.text()))).count() == 1;
+		int meridianStart = -1;
 		for (int i = 0; i < tokens.size(); i++) {
-			final String token = tokens.get(i).text();
+			final String token = withoutNumberPeriod(tokens.get(i).text());
 			final String next = i + 1 < tokens.size() ? tokens.get(i + 1).text() : "";
 			try {
 				if (NUMBER.matcher(token).matches()) {
-					if (token.length() <= 2 && meridian(next) != null) {
+					if (token.length() <= 2 && meridian(next) != null && !isDayBeforeMeridian(text, tokens, i, fields)) {
 						// an hour followed by AM or PM, like 7 pm
 						parseTime(token + meridian(next), fields);
 						i++;
 					} else {
-						parseNumericToken(token, tokens.size(), fields);
+						parseNumericToken(token, loneNumber, fields);
 					}
 				} else {
+					if (meridian(token) != null) {
+						meridianStart = tokens.get(i).start();
+					}
 					parseNonNumericToken(token, fields);
 				}
 			} catch (ParseFailure e) {
 				throw e.at(tokens.get(i).start());
 			}
 		}
+		if (fields.isMeridianPending()) {
+			throw new ParseFailure("AM or PM without an hour").at(meridianStart);
+		}
 		return fields;
+	}
+
+	/**
+	 * Remove the period from a number followed by a period, like <code>"5."</code> in "5. March 2008".
+	 */
+	private static String withoutNumberPeriod(String token) {
+		return NUMBER_WITH_PERIOD.matcher(token).matches() ? token.substring(0, token.length() - 1) : token;
+	}
+
+	/**
+	 * Is a number that is followed by AM or PM the day of the date, rather than the hour?  It is the day if the month is known, the day
+	 * isn't, and the number is joined to the date, like 05 in "2008-03-05 PM", or follows a month name, like 5 in "Mar 5 PM".
+	 * Otherwise it is the hour, like 7 in "Mar 5 7 PM" or "7 PM Mar 5".
+	 */
+	private static boolean isDayBeforeMeridian(String text, List<Tokenizer.Token> tokens, int index, DateTimeFields fields) {
+		if (!fields.isMonthSet() || fields.isDaySet() || index == 0) {
+			return false;
+		}
+		final int start = tokens.get(index).start();
+		final boolean joinedToDate = start >= 2 && "-/.".indexOf(text.charAt(start - 1)) >= 0 && Character.isLetterOrDigit(text.charAt(start - 2));
+		return joinedToDate || monthNumber(tokens.get(index - 1).text()) != null;
+	}
+
+	/**
+	 * Is the token only a word, which doesn't add to the date or time: a weekday, a time zone name, or a word that is ignored, like "at"?
+	 */
+	private static boolean isWord(String token) {
+		return token.chars().noneMatch(Character::isDigit) && meridian(token) == null && monthNumber(token) == null && ordinalNumber(token) == null
+			&& !token.equals("NOON") && !token.equals("MIDNIGHT");
+	}
+
+	/**
+	 * Is the token read as part of a date or time, before time zone names are looked up?  A time zone abbreviation that is such a token,
+	 * like MAR, SAT or AM, can't be found in a datetime string.
+	 *
+	 * @param token upper case token
+	 * @return <code>true</code> if the token is a number, a weekday or month name, an ordinal, AM or PM, noon or midnight, a time or an offset
+	 */
+	static boolean isDateTimeWord(String token) {
+		return NUMBER.matcher(withoutNumberPeriod(token)).matches() || isWeekdayName(token) || isOffset(token) || isTime(withCompactMeridian(token))
+			|| token.indexOf(':') >= 0 || isCompactTime(token) || meridian(token) != null || monthNumber(token) != null || ordinalNumber(token) != null
+			|| token.equals("NOON") || token.equals("MIDNIGHT");
 	}
 
 	/**
@@ -86,16 +149,17 @@ final class PatternFreeParser {
 	 * @return the numeric value, or <code>null</code> if the token is not an ordinal number
 	 */
 	static Integer ordinalNumber(String token) {
-		if (token.length() <= 2) {
+		final String name = withoutPeriod(token);
+		if (name.length() <= 2) {
 			return null;
 		}
-		final int index = ORDINAL_NUMBERS.indexOf(token.replace("-", ""));
+		final int index = ORDINAL_NUMBERS.indexOf(name.replace("-", ""));
 		if (index >= 0) {
 			return index + 1;
 		}
-		if (ORDINAL_SUFFIXES.contains(token.substring(token.length() - 2))) {
+		if (ORDINAL_SUFFIXES.contains(name.substring(name.length() - 2))) {
 			try {
-				return Integer.parseInt(token.substring(0, token.length() - 2));
+				return Integer.parseInt(name.substring(0, name.length() - 2));
 			} catch (NumberFormatException e) {
 				return null;
 			}
@@ -235,7 +299,43 @@ final class PatternFreeParser {
 	}
 
 	/**
-	 * Use a token that isn't a number: a weekday or month name, an ordinal, a time, AM or PM, noon or midnight, or a time zone.  Other words are ignored.
+	 * Is the token a time zone offset, like -05:00 or GMT+5?
+	 */
+	private static boolean isOffset(String token) {
+		return token.startsWith("+") || token.startsWith("-") || ((token.startsWith("GMT") || token.startsWith("UTC")) && (token.contains("+") || token.contains("-")));
+	}
+
+	/**
+	 * Is the token a time with colons or AM or PM, like 7:02 or 8AM?
+	 */
+	private static boolean isTime(String token) {
+		return Character.isDigit(token.charAt(0)) && (token.indexOf(':') > 0 || (token.length() > 2 && (token.endsWith("AM") || token.endsWith("PM"))));
+	}
+
+	/**
+	 * Is the token a time without colons, with a fraction of a second or a time zone, like 070210Z?
+	 */
+	private static boolean isCompactTime(String token) {
+		return !NUMBER.matcher(token).matches() && COMPACT_TIME.matcher(token).matches();
+	}
+
+	/**
+	 * Remove the periods from A.M. or P.M. at the end of a time, like <code>"7A.M."</code> or <code>"7:02P.M"</code>.
+	 */
+	private static String withCompactMeridian(String token) {
+		if (Character.isDigit(token.charAt(0))) {
+			for (String suffix : List.of("A.M.", "P.M.", "A.M", "P.M")) {
+				if (token.endsWith(suffix)) {
+					return token.substring(0, token.length() - suffix.length()) + suffix.charAt(0) + "M";
+				}
+			}
+		}
+		return token;
+	}
+
+	/**
+	 * Use a token that isn't a number: a weekday or month name, an ordinal, a time, AM or PM, noon or midnight, or a time zone.
+	 * Other words are ignored, but other tokens with digits are rejected, so that part of a date or time isn't lost.
 	 */
 	private void parseNonNumericToken(String token, DateTimeFields fields) throws ParseFailure {
 		// weekday names don't change the date
@@ -244,14 +344,22 @@ final class PatternFreeParser {
 		}
 
 		// time zone offset, like -05:00 or GMT+5
-		if (token.startsWith("+") || token.startsWith("-") || ((token.startsWith("GMT") || token.startsWith("UTC")) && (token.contains("+") || token.contains("-")))) {
+		if (isOffset(token)) {
 			parseTimeZoneOffset(token, fields);
 			return;
 		}
 
-		// time, like 7:02 or 8AM
-		if (Character.isDigit(token.charAt(0)) && (token.indexOf(':') > 0 || (token.length() > 2 && (token.endsWith("AM") || token.endsWith("PM"))))) {
-			parseTime(token, fields);
+		// time without colons, like 070210Z or 070210-05:00
+		final Matcher compactTime = COMPACT_TIME.matcher(token);
+		if (compactTime.matches()) {
+			parseCompactTime(compactTime, fields);
+			return;
+		}
+
+		// time, like 7:02, 8AM or 8A.M.
+		final String time = withCompactMeridian(token);
+		if (isTime(time)) {
+			parseTime(time, fields);
 			return;
 		}
 		// colons only appear in times and offsets
@@ -293,8 +401,33 @@ final class PatternFreeParser {
 		final ZoneId zone = timeZoneNames.find(token);
 		if (zone != null) {
 			fields.setZoneName(zone);
+			return;
+		}
+
+		if (token.chars().anyMatch(Character::isDigit)) {
+			throw new ParseFailure("Unrecognized " + token);
 		}
 		// otherwise ignore the word, e.g. "of", "at" or "the"
+	}
+
+	/**
+	 * Use a time without colons, like 070210Z, by writing it with colons, like 07:02:10Z.
+	 */
+	private static void parseCompactTime(Matcher compactTime, DateTimeFields fields) throws ParseFailure {
+		if (fields.isHourSet()) {
+			throw new ParseFailure("Two times");
+		}
+		final StringBuilder time = new StringBuilder(compactTime.group(1)).append(':').append(compactTime.group(2));
+		if (compactTime.group(3) != null) {
+			time.append(':').append(compactTime.group(3));
+		}
+		if (compactTime.group(4) != null) {
+			time.append('.').append(compactTime.group(4));
+		}
+		if (compactTime.group(5) != null) {
+			time.append(compactTime.group(5));
+		}
+		parseTime(time.toString(), fields);
 	}
 
 	/**
@@ -374,18 +507,21 @@ final class PatternFreeParser {
 	 * Use a number.
 	 * <ul>
 	 * <li>a number with a sign is a time zone offset, like -5 or +0530</li>
-	 * <li>a number by itself is a year, a compact date, a compact datetime or a time since the epoch, depending on its length</li>
+	 * <li>a number by itself, or with only words like a time zone name, is a year, a compact date, a compact datetime or a time since the epoch,
+	 * depending on its length</li>
 	 * <li>after a complete date, a number is a time like 0702 or 19, or, after a time, a time zone offset</li>
-	 * <li>otherwise, a number is a year, month or day, or a compact date like 03052008</li>
+	 * <li>otherwise, a number is a compact date like 03052008 if it has 6 or 8 digits and is first, or else a year, month or day</li>
 	 * </ul>
+	 *
+	 * @param loneNumber <code>true</code> if the number is the only token that isn't a word
 	 */
-	private void parseNumericToken(String token, int tokenCount, DateTimeFields fields) throws ParseFailure {
+	private void parseNumericToken(String token, boolean loneNumber, DateTimeFields fields) throws ParseFailure {
 		if (token.startsWith("+") || token.startsWith("-")) {
 			parseTimeZoneOffset(token, fields);
 			return;
 		}
 
-		if (tokenCount == 1) {
+		if (loneNumber) {
 			parseLoneNumber(token, fields);
 			return;
 		}
@@ -400,13 +536,15 @@ final class PatternFreeParser {
 			return;
 		}
 
+		// the length decides, so a compact date with a small value, like 000305, isn't a year
+		if ((token.length() == 6 || token.length() == 8) && !fields.isYearSet() && !fields.isMonthSet() && !fields.isDaySet()) {
+			parseCompactDate(token, fields);
+			return;
+		}
+
 		// leading zeros are allowed, like 0005 or 02008
 		final long value = parseLong(token);
 		if (value > 9999) {
-			if ((token.length() == 6 || token.length() == 8) && !fields.isYearSet() && !fields.isMonthSet() && !fields.isDaySet()) {
-				parseCompactDate(token, fields);
-				return;
-			}
 			throw new ParseFailure("Unknown number " + token);
 		}
 		// a first value written with four or more digits is a year, even if it's small, like 0008-03-05

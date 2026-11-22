@@ -18,8 +18,8 @@
 
 ### Added
 - Nanosecond precision.
-- `T` between the date and time, offsets attached to times (`07:02:10-05:00`, `07:02:10Z`), and comma fractions (`07:02:10,123`).
-- Dotted dates (`05.03.2008`), compact dates (`20240305`), and compact datetimes (`20240305193005`).
+- `T` between the date and time, offsets attached to times (`07:02:10-05:00`, `07:02:10Z`), ISO 8601 basic times (`20080305T070210Z`), and comma fractions (`07:02:10,123`).
+- Dotted dates (`05.03.2008`, `05.Mar.2008`), compact dates (`20240305`), and compact datetimes (`20240305193005`).
 - Times without colons after a date (`Mar 5, 2008 0702`), hours with AM or PM (`7 pm`), `a.m.` and `p.m.`, `noon` and `midnight`.
 - Seconds since the epoch.
 - An offset wins over a time zone name, e.g. `-0500 (EST)` in email dates, and `GMT -7`.
@@ -28,6 +28,10 @@
 - `RosemaryDateTimeParser.defaultTimeZoneAbbreviations()` and `getTimeZoneAbbreviations()`, which replace `TimeZoneUtils.getTimezoneNameToTimezoneMap()`.
 
 ### Fixed
+- Dates with a month name joined by dashes, like `05-Mar-2008` or `Mar-05-2008`, were misread.
+- `7A.M.` was ignored.  Other tokens with digits that aren't understood, like `W10`, were ignored too, and are rejected now.
+- `13:00AM` was accepted as 13:00.
+- AM or PM without an hour, like `2008-03-05 PM`, was ignored.  It is rejected now.
 - Time zones whose names end in AM or PM, like `Europe/Amsterdam` and `Pacific/Guam`, threw an exception.
 - `12pm` threw an exception, and `12am` was noon.
 - Invalid dates, like February 31st, rolled over into the next month.  They are rejected now, with or without a pattern.

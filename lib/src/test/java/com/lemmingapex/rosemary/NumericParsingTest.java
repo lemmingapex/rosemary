@@ -91,4 +91,25 @@ class NumericParsingTest {
 	void rejectsOtherNumbers(String text) {
 		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text));
 	}
+
+	@ParameterizedTest(name = "{0} {1}")
+	@CsvSource(delimiter = '|', textBlock = """
+		000305 07:02            | YY_MM_DD | 2000-03-05T07:02Z
+		000305                  | YY_MM_DD | 2000-03-05T00:00Z
+		00080305 07:02          | YY_MM_DD | 0008-03-05T07:02Z
+		""")
+	void readsCompactDatesWithLeadingZeros(String text, RosemaryDateOrder dateOrder, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text, dateOrder));
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', textBlock = """
+		1709596800 UTC          | 2024-03-05T00:00Z
+		at 1709596800           | 2024-03-05T00:00Z
+		1709596800000 Z         | 2024-03-05T00:00Z
+		2024 UTC                | 2024-01-01T00:00Z
+		""")
+	void readsANumberWithOnlyWordsAsALoneNumber(String text, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text));
+	}
 }

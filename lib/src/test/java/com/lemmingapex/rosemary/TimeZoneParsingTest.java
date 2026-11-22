@@ -92,6 +92,17 @@ class TimeZoneParsingTest {
 		Jan 21 2022 3:45 pm MDT    | 2022-01-21T15:45-07:00
 		June 21 2022 3:45 pm MST   | 2022-06-21T15:45-06:00
 		Jan 21 2022 3:45 pm MST    | 2022-01-21T15:45-07:00
+		June 21 2022 3:45 pm EST   | 2022-06-21T15:45-04:00
+		Jan 21 2022 3:45 pm EDT    | 2022-01-21T15:45-05:00
+		June 21 2022 3:45 pm CST   | 2022-06-21T15:45-05:00
+		Jan 21 2022 3:45 pm CDT    | 2022-01-21T15:45-06:00
+		June 21 2022 3:45 pm PST   | 2022-06-21T15:45-07:00
+		Jan 21 2022 3:45 pm PDT    | 2022-01-21T15:45-08:00
+		June 21 2022 3:45 pm AKST  | 2022-06-21T15:45-08:00
+		Jan 21 2022 3:45 pm AKDT   | 2022-01-21T15:45-09:00
+		June 21 2022 3:45 pm HAST  | 2022-06-21T15:45-09:00
+		Jan 21 2022 3:45 pm HADT   | 2022-01-21T15:45-10:00
+		June 21 2022 3:45 pm HST   | 2022-06-21T15:45-10:00
 		""")
 	void abbreviationsMeanRegions(String text, OffsetDateTime expected) {
 		assertEquals(expected, PARSER.parse(text));

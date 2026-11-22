@@ -10,6 +10,7 @@ import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Map;
 
+import java.util.List;
 import static com.lemmingapex.rosemary.TestParsers.CLOCK;
 import static com.lemmingapex.rosemary.TestParsers.PARSER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -185,5 +186,28 @@ class ParserConfigurationTest {
 	void describesItself() {
 		assertTrue(PARSER.toString().contains("dateOrder=MM_DD_YY"));
 		assertTrue(PARSER.toString().contains("defaultZone=Z"));
+	}
+
+	@Test
+	void rejectsAbbreviationsThatCanNotBeFound() {
+		for (String abbreviation : new String[] {"MAR", "may", "SAT", "Wed", "AM", "p.m.", "NOON", "1ST", "First", "123", "07:00", "0702Z", "+05", "GMT+1",
+			"UTC+X", "A,B", "A(B)", "A'B", "A\"B", "X1-2", "A/1", "1.2"}) {
+			assertThrows(IllegalArgumentException.class, () -> PARSER.toBuilder().timeZoneAbbreviation(abbreviation, ZoneId.of("Europe/Paris")), abbreviation);
+			assertThrows(IllegalArgumentException.class, () -> PARSER.toBuilder().timeZoneAbbreviations(Map.of(abbreviation, ZoneId.of("Europe/Paris"))), abbreviation);
+		}
+		// names with dashes, slashes and digits that stay one token are fine
+		for (String abbreviation : new String[] {"Eastern-Time", "Mountain/Standard", "MSK3", "A.B."}) {
+			final RosemaryDateTimeParser parser = PARSER.toBuilder().timeZoneAbbreviation(abbreviation, ZoneId.of("Europe/Paris")).build();
+			assertEquals(ZoneId.of("Europe/Paris"), parser.findTimeZone(abbreviation).orElseThrow(), abbreviation);
+			assertEquals(OffsetDateTime.parse("2024-03-05T10:00+01:00"), parser.parse("2024-03-05 10:00 " + abbreviation), abbreviation);
+		}
+	}
+
+	@Test
+	void defaultAbbreviationsCanBeFound() {
+		RosemaryDateTimeParser.defaultTimeZoneAbbreviations().forEach((abbreviation, zone) -> {
+			assertFalse(PatternFreeParser.isDateTimeWord(abbreviation), abbreviation);
+			assertEquals(List.of(abbreviation), Tokenizer.tokenize(abbreviation).stream().map(Tokenizer.Token::text).toList());
+		});
 	}
 }

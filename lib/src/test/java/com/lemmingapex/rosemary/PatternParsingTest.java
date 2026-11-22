@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 
+import java.time.ZonedDateTime;
 import static com.lemmingapex.rosemary.TestParsers.PARSER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -82,5 +83,35 @@ class PatternParsingTest {
 	void returnsNullForNullText() {
 		assertNull(PARSER.parse(null, "yyyy-MM-dd"));
 		assertNull(PARSER.parse(null, List.of("yyyy-MM-dd")));
+	}
+
+	@Test
+	void keepsATimeZoneWithoutATimeOrADate() {
+		assertEquals(ZonedDateTime.parse("2008-03-05T00:00-05:00"), PARSER.parseZoned("2008-03-05 -05:00", "yyyy-MM-dd XXX"));
+		assertEquals(ZonedDateTime.parse("2008-03-05T00:00-07:00[America/Denver]"), PARSER.parseZoned("2008-03-05 America/Denver", "yyyy-MM-dd VV"));
+		assertEquals(ZonedDateTime.parse("2024-06-15T07:02-06:00[America/Denver]"), PARSER.parseZoned("07:02 America/Denver", "HH:mm VV"));
+		assertEquals(OffsetDateTime.parse("2024-06-15T07:02+01:00"), PARSER.parse("07:02 +01:00", "HH:mm XXX"));
+	}
+
+	@ParameterizedTest(name = "{0} {1}")
+	@CsvSource(delimiter = '|', textBlock = """
+		03-05             | MM-dd         | 2024-03-05T00:00Z
+		2008-03           | yyyy-MM       | 2008-03-01T00:00Z
+		2008              | yyyy          | 2008-01-01T00:00Z
+		March             | MMMM          | 2024-03-01T00:00Z
+		05                | dd            | 2024-06-05T00:00Z
+		03-05 07:02       | MM-dd HH:mm   | 2024-03-05T07:02Z
+		""")
+	void fillsInPartialDates(String text, String pattern, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text, pattern));
+	}
+
+	@Test
+	void rejectsPartialDatesAndTimesThatAreNotValid() {
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("02-30", "MM-dd"));
+		// an hour of AM or PM without AM or PM isn't dropped
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("2008-03-05 07", "yyyy-MM-dd hh"));
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("America/Denver", "VV"));
+		assertEquals(OffsetDateTime.parse("2008-03-05T19:00Z"), PARSER.parse("2008-03-05 07 PM", "yyyy-MM-dd hh a"));
 	}
 }

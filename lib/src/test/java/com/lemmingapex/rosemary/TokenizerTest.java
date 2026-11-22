@@ -63,4 +63,21 @@ class TokenizerTest {
 	void upperCasesTokens(String text, String expected) {
 		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text).stream().map(Tokenizer.Token::text).toList());
 	}
+
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', textBlock = """
+		05-Mar-2008                  | 05 MAR 2008
+		Mar-05-2008                  | MAR 05 2008
+		2008-Sept-05                 | 2008 SEPT 05
+		05.Mar.2008                  | 05 MAR 2008
+		20080305T070210-05:00        | 20080305 070210-05:00
+		20080305T070210.123Z         | 20080305 070210.123Z
+		7:02PM-05:00                 | 7:02PM-05:00
+		GMTX-5                       | GMTX-5
+		ETC/GMT-5                    | ETC/GMT-5
+		UTC-05:00                    | UTC-05:00
+		""")
+	void splitsMonthNamesAndCompactTimes(String text, String expected) {
+		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text).stream().map(Tokenizer.Token::text).toList());
+	}
 }

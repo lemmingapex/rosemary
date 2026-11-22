@@ -21,6 +21,7 @@ final class TimeZoneNames {
 	 * The time zone abbreviations recognized by default: the abbreviations used by current time zones in the English (US) CLDR locale data.
 	 * <p>
 	 * An abbreviation maps to a region, not a fixed offset, so CST and CDT both mean America/Chicago, and the offset depends on the date.
+	 * This follows how abbreviations are usually written, e.g. CST all year for the time in Chicago.
 	 * Where an abbreviation is used by several regions, the most populous region is used, e.g. CST is America/Chicago, not Asia/Shanghai,
 	 * and IST is Asia/Kolkata, not Asia/Jerusalem or Europe/Dublin.
 	 */

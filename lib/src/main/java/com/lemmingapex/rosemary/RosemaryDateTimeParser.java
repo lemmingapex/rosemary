@@ -89,6 +89,7 @@ public final class RosemaryDateTimeParser {
 	 * The time zone abbreviations recognized by default, like PST and CET, and the time zones they map to.
 	 * <p>
 	 * An abbreviation maps to a region, not a fixed offset, so CST and CDT both mean America/Chicago, and the offset depends on the date.
+	 * This follows how abbreviations are usually written, e.g. CST all year for the time in Chicago.
 	 * Region ids like America/Denver, and UTC, GMT, UT, Z and Zulu, are always recognized and aren't included.
 	 *
 	 * @return the default abbreviations, sorted by name, with case-insensitive keys.  The map can't be changed.
@@ -142,7 +143,7 @@ public final class RosemaryDateTimeParser {
 	 * Parse a datetime with a {@link java.time.format.DateTimeFormatter} pattern, like <code>"MM-dd-yy HH:mm VV"</code>.
 	 * <p>
 	 * The pattern doesn't need to include every field: a missing time zone is this parser's default zone, a missing time is midnight,
-	 * and a missing date is today.  Names, like month names, use this parser's locale.
+	 * and a missing year, month or day comes from today's date, like {@link #parse(String)}.  Names, like month names, use this parser's locale.
 	 *
 	 * @param text the datetime to parse
 	 * @param pattern the {@link java.time.format.DateTimeFormatter} pattern
@@ -433,7 +434,8 @@ public final class RosemaryDateTimeParser {
 		 * @param abbreviation the abbreviation, like <code>"SGT"</code>
 		 * @param zone the time zone, like <code>ZoneId.of("Asia/Singapore")</code>
 		 * @return this builder
-		 * @throws IllegalArgumentException if the abbreviation is blank, contains whitespace, or is a name for UTC
+		 * @throws IllegalArgumentException if the abbreviation is blank, contains whitespace, is a name for UTC, or can't be found in a datetime
+		 * string, because it has characters that separate the parts of a datetime, like a comma, or is read as part of a date or time, like MAR or AM
 		 */
 		public Builder timeZoneAbbreviation(String abbreviation, ZoneId zone) {
 			checkAbbreviation(abbreviation);
@@ -446,7 +448,7 @@ public final class RosemaryDateTimeParser {
 		 *
 		 * @param abbreviations the abbreviations and their time zones
 		 * @return this builder
-		 * @throws IllegalArgumentException if an abbreviation is blank, contains whitespace, or is a name for UTC
+		 * @throws IllegalArgumentException if an abbreviation is blank, contains whitespace, is a name for UTC, or can't be found in a datetime string
 		 * @see RosemaryDateTimeParser#defaultTimeZoneAbbreviations()
 		 */
 		public Builder timeZoneAbbreviations(Map<String, ZoneId> abbreviations) {
@@ -460,13 +462,25 @@ public final class RosemaryDateTimeParser {
 			return this;
 		}
 
+		/**
+		 * Check that an abbreviation can be found in a datetime string: it must be a single token, and not a word that is read as part of
+		 * a date or time, like MAR, SAT or AM.
+		 */
 		private static void checkAbbreviation(String abbreviation) {
 			Objects.requireNonNull(abbreviation, "abbreviation");
 			if (abbreviation.isBlank() || abbreviation.chars().anyMatch(Character::isWhitespace)) {
 				throw new IllegalArgumentException("Bad time zone abbreviation: \"" + abbreviation + "\"");
 			}
-			if (TimeZoneNames.UTC_NAMES.contains(TimeZoneNames.upperCase(abbreviation))) {
+			final String upperCase = TimeZoneNames.upperCase(abbreviation);
+			if (TimeZoneNames.UTC_NAMES.contains(upperCase)) {
 				throw new IllegalArgumentException(abbreviation + " always means UTC, and can't be changed");
+			}
+			final List<Tokenizer.Token> tokens = Tokenizer.tokenize(abbreviation);
+			if (tokens.size() != 1 || !tokens.get(0).text().equals(upperCase)) {
+				throw new IllegalArgumentException("Bad time zone abbreviation: \"" + abbreviation + "\" has characters that separate the parts of a datetime");
+			}
+			if (PatternFreeParser.isDateTimeWord(upperCase)) {
+				throw new IllegalArgumentException("Bad time zone abbreviation: \"" + abbreviation + "\" is read as part of a date or time");
 			}
 		}
 
