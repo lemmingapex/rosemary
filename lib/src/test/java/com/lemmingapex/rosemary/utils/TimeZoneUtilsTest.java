@@ -1,6 +1,6 @@
 package com.lemmingapex.rosemary.utils;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -8,8 +8,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TimeZoneUtilsTest {
 	@Test
@@ -28,7 +28,7 @@ public class TimeZoneUtilsTest {
 			"MST", "America/Denver", "MDT", "America/Denver",
 			"CST", "America/Chicago", "CDT", "America/Chicago",
 			"EST", "America/New_York", "EDT", "America/New_York");
-		abbreviations.forEach((abbreviation, id) -> assertEquals(abbreviation, id, map.get(abbreviation).getID()));
+		abbreviations.forEach((abbreviation, id) -> assertEquals(id, map.get(abbreviation).getID(), abbreviation));
 		assertNotNull(map.get("CET"));
 	}
 
@@ -47,9 +47,9 @@ public class TimeZoneUtilsTest {
 			for (Locale locale : List.of(Locale.GERMANY, Locale.forLanguageTag("tr-TR"), Locale.JAPAN)) {
 				Locale.setDefault(locale);
 				final LinkedCaseInsensitiveMap<TimeZone> map = TimeZoneUtils.buildTimezoneNameToTimezoneMap();
-				assertEquals(locale.toString(), TimeZoneUtils.getTimezoneNameToTimezoneMap().keySet(), map.keySet());
+				assertEquals(TimeZoneUtils.getTimezoneNameToTimezoneMap().keySet(), map.keySet(), locale.toString());
 				for (String name : List.of("CET", "PST", "EST", "Pacific/Guam", "PACIFIC/GUAM", "america/indiana/indianapolis")) {
-					assertNotNull(locale + " " + name, map.get(name));
+					assertNotNull(map.get(name), locale + " " + name);
 				}
 			}
 		} finally {

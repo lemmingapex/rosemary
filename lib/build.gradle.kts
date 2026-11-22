@@ -25,8 +25,10 @@ repositories {
 }
 
 dependencies {
-    // Use JUnit test framework.
-    testImplementation(libs.junit)
+    // Use the JUnit Jupiter test framework.
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -40,6 +42,7 @@ java {
 val testJavaVersion = providers.gradleProperty("testJavaVersion").map(String::toInt)
 
 tasks.test {
+    useJUnitPlatform()
     testJavaVersion.orNull?.let { version ->
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(version)

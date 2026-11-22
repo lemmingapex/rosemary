@@ -1,6 +1,6 @@
 package com.lemmingapex.rosemary;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * These are the main tests for Rosemary.  These tests parse any and every date that can be found.
@@ -358,7 +358,7 @@ public class RosemaryParserTest {
 		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
 		final OffsetDateTime expected = OffsetDateTime.parse("2024-03-05T10:00:00.000+05:30");
 		for (String offset : List.of("+05:30", "+5:30", "+0530", "GMT+05:30", "GMT+5:30", "UTC+0530", "UTC+530")) {
-			assertEquals(offset, expected, rosemaryDateTimeParser.parse("2024-03-05 10:00 " + offset));
+			assertEquals(expected, rosemaryDateTimeParser.parse("2024-03-05 10:00 " + offset), offset);
 		}
 		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000-03:00"), rosemaryDateTimeParser.parse("2024-03-05 10:00 UTC-03"));
 	}
@@ -368,7 +368,7 @@ public class RosemaryParserTest {
 		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
 		// all of these used to either silently become UTC, or throw an unchecked java.time.DateTimeException
 		for (String input : List.of("2024-03-05 10:00 +19:00", "2024-03-05 10:00 +25:00", "2024-03-05 10:00 UTC+1900", "2024-03-05 10:00 GMT+05:75", "2024-03-05 10:00 +05:30:00", "2024-03-05 10:00 -19", "March 5 2024 19")) {
-			assertThrows(input, RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse(input));
+			assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse(input), input);
 		}
 	}
 
