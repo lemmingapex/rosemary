@@ -2,7 +2,7 @@
 
 ## 2.0.0 (unreleased)
 
-2.0 has a new, smaller API built on `java.time`.  See [Upgrading from 1.x](README.md#upgrading-from-1x).
+2.0 has a new, smaller API built on `java.time`.
 
 ### Breaking changes
 - Configure parsers with `RosemaryDateTimeParser.builder()`: date order, default time zone, a `Clock` for today's date, the locale for patterns, the century of two-digit years, and time zone abbreviations.  `toBuilder()` starts from an existing parser.

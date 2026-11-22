@@ -57,7 +57,7 @@ Maven dependency:
 </dependency>
 ```
 
-Rosemary is a Java module, `com.lemmingapex.rosemary`.  Upgrading from 1.x?  See [Upgrading from 1.x](#upgrading-from-1x).
+Rosemary is a Java module, `com.lemmingapex.rosemary`.
 
 ## Usage
 
@@ -165,20 +165,6 @@ The builder can also set the locale for names in patterns (`locale`, English by 
 
 ### Thread safety
 Parsers are immutable and thread-safe.  Create one, and share it.
-
-## Upgrading from 1.x
-2.0 has a new, smaller API built on `java.time`, and fixes many parsing bugs.  See the [changelog](CHANGELOG.md) for everything that changed.
-
-* `RosemaryDateTimeException` is unchecked now.  Existing `catch` blocks still work.
-* `parse(text, dateOrder, defaultDateTimeState)` is gone.  Use `RosemaryDateTimeParser.builder()` with `clock(...)` for the date, and `defaultZone(...)` for the time zone.
-* `new RosemaryDateTimeParser(timeZoneProvider)` is gone.  Use `builder().timeZoneAbbreviations(...)` or `timeZoneAbbreviation(...)`.
-* `RosemaryDateTimeState`, `RosemaryTimeZoneProvider`, and the `utils` package (`TimeZoneUtils`, `ParsingUtilities`, `LinkedCaseInsensitiveMap`) are removed.
-* Instead of `TimeZoneUtils.getTimezoneNameToTimezoneMap()`, use `findTimeZone(name)` to look up a name, `getTimeZoneAbbreviations()` or `defaultTimeZoneAbbreviations()` for the abbreviations, and `ZoneId.getAvailableZoneIds()` for the region ids.
-* Patterns are `DateTimeFormatter` patterns only, with strict dates.  `SimpleDateFormat` patterns aren't supported, and the pattern locale is English unless set with `locale(...)`.
-* Some results change:
-  * "Today" comes from the clock in the datetime's time zone, instead of the system time zone.
-  * A number by itself follows the table above.  1.x read most short numbers as milliseconds since the epoch.
-  * The built-in abbreviations no longer depend on the JDK or the system locale.
 
 ## Building and Tests
 To build and test:
