@@ -39,7 +39,7 @@ rosemary.parse("1204675245123");                                        // 2008-
 ## Get Rosemary
 Gradle dependency:
 ```groovy
-implementation 'com.lemmingapex:rosemary:1.0.0'
+implementation 'com.lemmingapex:rosemary:1.1.0'
 ```
 
 Maven dependency:
@@ -47,7 +47,7 @@ Maven dependency:
 <dependency>
     <groupId>com.lemmingapex</groupId>
     <artifactId>rosemary</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
