@@ -4,7 +4,10 @@ import com.lemmingapex.rosemary.utils.ParsingUtilities;
 import com.lemmingapex.rosemary.utils.TimeZoneUtils;
 
 import java.text.DateFormat;
+import java.time.DateTimeException;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -26,6 +29,17 @@ public class RosemaryDateTimeParser {
 
 	private static final List<String> WEEKDAY_NAMES = List.of("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
 	private static final List<String> MONTH_NAMES = List.of("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER");
+	/**
+	 * Splits a datetime string into tokens.
+	 * <ul>
+	 * <li>split on dash, unless it is prefixed by whitespace, a letter or a parenthesis. if so, it is likely a timezone offset like GMT-7 or -05:00</li>
+	 * <li>split on forward slash, unless it is prefixed and suffixed by letters, which means it is likely a timezone name like America/Detroit</li>
+	 * <li>split on whitespace, comma, parentheses, single quote, double quote</li>
+	 * </ul>
+	 */
+	private static final Pattern TOKEN_PATTERN = Pattern.compile("((?<!([\\s\\h])|[A-Za-z()])-|((?<=[^A-Za-z])/(?=[^A-Za-z]))|[\\s\\h,)('\"])+");
+	private static final Pattern DASHES_PATTERN = Pattern.compile("-+");
+
 	private static final List<String> ORDINAL_NUMBERS = List.of("FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH", "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH", "TWENTYFIRST", "TWENTYSECOND", "TWENTYTHIRD", "TWENTYFOURTH", "TWENTYFIFTH", "TWENTYSIXTH", "TWENTYSEVENTH", "TWENTYEIGHTH", "TWENTYNINTH", "THIRTIETH", "THIRTYFIRST");
 
 	private final Map<String, TimeZone> timeZoneNameToTimeZone;
@@ -49,13 +63,13 @@ public class RosemaryDateTimeParser {
 	private static Integer getOrdinalNumber(String str) {
 		final int len = (str == null ? 0 : str.length());
 		if (len > 2) {
-			final String normalizedString = str.trim().replace("-", "").toUpperCase();
+			final String normalizedString = str.trim().replace("-", "").toUpperCase(Locale.ROOT);
 			int index = ORDINAL_NUMBERS.indexOf(normalizedString);
 			if (index >= 0) {
 				return index + 1;
 			}
 
-			final String suffix = str.substring(len - 2).toUpperCase();
+			final String suffix = str.substring(len - 2).toUpperCase(Locale.ROOT);
 			final String[] ordinalSuffixes = { "ST", "ND", "RD", "TH" };
 			for (String ordinalSuffix : ordinalSuffixes) {
 				if (ordinalSuffix.equals(suffix)) {
@@ -71,14 +85,25 @@ public class RosemaryDateTimeParser {
 	}
 
 	/**
-	 * Determine is the supplied string is a value weekday name.
+	 * Normalize a name token for matching against weekday and month names: upper case, and without a trailing period.
+	 *
+	 * @param str token
+	 * @return normalized token
+	 */
+	private static String normalizeName(String str) {
+		final String upperStr = str.toUpperCase(Locale.ROOT);
+		return upperStr.endsWith(".") ? upperStr.substring(0, upperStr.length() - 1) : upperStr;
+	}
+
+	/**
+	 * Determine if the supplied string is a valid weekday name.
 	 *
 	 * @param str weekday name to check
 	 * @return <code>true</code> if the supplied string is a weekday name.
 	 */
 	private static boolean isWeekdayName(String str) {
 		if (str != null && str.length() >= 3) {
-			final String upperStr = str.toUpperCase();
+			final String upperStr = normalizeName(str);
 			for (final String weekDayName : WEEKDAY_NAMES) {
 				if (upperStr.startsWith(weekDayName) || weekDayName.startsWith(upperStr)) {
 					return true;
@@ -91,18 +116,21 @@ public class RosemaryDateTimeParser {
 
 	/**
 	 * Convert the supplied month name to its numeric representation. <br>
-	 * For example, <code>"January"</code> (or any substring) would return <code>1</code> and <code>"December"</code>
-	 * would return <code>12</code>.
+	 * For example, <code>"January"</code> (or any prefix of at least three letters, like <code>"Jan"</code>) would return
+	 * <code>1</code> and <code>"December"</code> would return <code>12</code>.
 	 *
 	 * @param str month name
 	 * @return the numeric month, or null if the supplied string is not a valid month name.
 	 */
 	private static Integer monthNameToNumber(String str) {
 		if (str != null && str.length() >= 3) {
-			final String upperStr = str.toUpperCase();
+			final String upperStr = normalizeName(str);
+			if (upperStr.length() < 3) {
+				return null;
+			}
 			for (int i = 0; i < MONTH_NAMES.size(); i++) {
 				final String monthName = MONTH_NAMES.get(i);
-				if (upperStr.startsWith(monthName.substring(0, 3)) || monthName.startsWith(upperStr)) {
+				if (monthName.startsWith(upperStr)) {
 					return i + 1;
 				}
 			}
@@ -183,8 +211,6 @@ public class RosemaryDateTimeParser {
 	 * @throws RosemaryDateTimeException if there is a problem with the time
 	 */
 	private void parseTimeZoneOffset(String zoneStr, RosemaryDateTimeState state) throws RosemaryDateTimeException {
-		TimePlace place = TimePlace.HOUR;
-
 		String normalizedZoneStr = zoneStr.trim();
 		if (normalizedZoneStr.startsWith("GMT") || normalizedZoneStr.startsWith("UTC")) {
 			normalizedZoneStr = normalizedZoneStr.substring(3).trim();
@@ -195,38 +221,53 @@ public class RosemaryDateTimeParser {
 			throw new RosemaryDateTimeException("Bad time zone offset: " + zoneStr);
 		}
 
-		int hour = 0;
-		int minute = 0;
-
-		final String[] tList = normalizedZoneStr.substring(1).split(":");
-		for (String token : tList) {
-			final int val;
-			try {
-				val = Integer.parseInt(token);
-			} catch (NumberFormatException nfe) {
-				throw new RosemaryDateTimeException("Bad time zone " + place.name() + " offset: " + token);
+		final String offset = normalizedZoneStr.substring(1);
+		final int hour;
+		final int minute;
+		try {
+			if (offset.contains(":")) {
+				// e.g. +5:30 or +05:30
+				final String[] tList = offset.split(":", -1);
+				if (tList.length != 2) {
+					throw new RosemaryDateTimeException("Bad time zone offset: " + zoneStr);
+				}
+				hour = Integer.parseInt(tList[0]);
+				minute = Integer.parseInt(tList[1]);
+			} else if (offset.length() <= 2) {
+				// e.g. +5 or +05
+				hour = Integer.parseInt(offset);
+				minute = 0;
+			} else if (offset.length() <= 4) {
+				// e.g. +530 or +0530
+				final int value = Integer.parseInt(offset);
+				hour = value / 100;
+				minute = value % 100;
+			} else {
+				throw new RosemaryDateTimeException("Bad time zone offset: " + zoneStr);
 			}
-
-			switch (place) {
-				case HOUR:
-					hour = val;
-					place = TimePlace.MINUTE;
-					break;
-				case MINUTE:
-					minute = val;
-					if (minute > 59) {
-						throw new RosemaryDateTimeException("Bad time zone " + place.name() + " offset: " + token);
-					}
-					place = TimePlace.UNKNOWN;
-					break;
-				default:
-					throw new RosemaryDateTimeException("Unexpected place value " + place);
-			}
+		} catch (NumberFormatException nfe) {
+			throw new RosemaryDateTimeException("Bad time zone offset: " + zoneStr, nfe);
 		}
 
-		final String customID = "GMT" + (isNegative ? "-" : "+") + hour + ":" + (minute < 10 ? "0" : "") + minute;
+		state.setTimeZone(offsetTimeZone(isNegative, hour, minute));
+	}
 
-		state.setTimeZone(TimeZone.getTimeZone(customID));
+	/**
+	 * Create a fixed offset {@link TimeZone}.
+	 *
+	 * @param isNegative <code>true</code> if the offset is behind UTC
+	 * @param hour offset hours: 0-18
+	 * @param minute offset minutes: 0-59
+	 * @return time zone with the given offset
+	 * @throws RosemaryDateTimeException if the offset is out of range
+	 */
+	private static TimeZone offsetTimeZone(boolean isNegative, int hour, int minute) throws RosemaryDateTimeException {
+		final int sign = isNegative ? -1 : 1;
+		try {
+			return TimeZone.getTimeZone(ZoneOffset.ofHoursMinutes(sign * hour, sign * minute));
+		} catch (DateTimeException e) {
+			throw new RosemaryDateTimeException(String.format("Bad time zone offset: %s%02d:%02d", isNegative ? "-" : "+", hour, minute), e);
+		}
 	}
 
 	/**
@@ -255,19 +296,19 @@ public class RosemaryDateTimeParser {
 		}
 
 		// does the token look like a time?
-		if (token.indexOf(':') > 0 || (token.length() > 2 && (token.endsWith("AM") || token.endsWith("PM")))) {
-			if (Character.isDigit(token.charAt(0))) {
-				parseTime(token, state);
-				return;
-			} else {
-				throw new RosemaryDateTimeException("Unrecognized time: " + token);
-			}
+		if (Character.isDigit(token.charAt(0)) && (token.indexOf(':') > 0 || (token.length() > 2 && (token.endsWith("AM") || token.endsWith("PM"))))) {
+			parseTime(token, state);
+			return;
+		}
+		// colons only appear in times and offsets
+		if (token.indexOf(':') > 0) {
+			throw new RosemaryDateTimeException("Unrecognized time: " + token);
 		}
 
 		// try to parse month name
 		Integer tmpMon = RosemaryDateTimeParser.monthNameToNumber(token);
 
-		// if token isn't a month name
+		// if token is a month name
 		if (tmpMon != null) {
 			// if month number is not set, set it and move on
 			if (!state.isMonthSet()) {
@@ -302,7 +343,7 @@ public class RosemaryDateTimeParser {
 		// maybe it's an ordinal number list "1st", "Fifth", "23rd", etc.
 		Integer val = RosemaryDateTimeParser.getOrdinalNumber(token);
 		if (val == null) {
-			final String upperCaseToken = token.toUpperCase();
+			final String upperCaseToken = token.toUpperCase(Locale.ROOT);
 
 			if (upperCaseToken.equals("AM")) {
 				if (!state.isHourSet()) {
@@ -460,22 +501,18 @@ public class RosemaryDateTimeParser {
 
 		// maybe a timezone offset
 		if (state.isYearSet() && state.isMonthSet() && state.isDaySet() && !state.isTimeZoneSet()) {
-			int timeZoneHour = 0;
-			int timeZoneMinute = 0;
-			long absNumericToken = Math.abs(numericToken);
-			if ((absNumericToken < 24) || (absNumericToken >= 100 && absNumericToken < 2400 && ((absNumericToken%100) < 60) && ((absNumericToken%100)%15 == 0))) {
-				boolean isNegative = numericToken < 0;
-				if (absNumericToken < 24) {
-					timeZoneHour = (int)absNumericToken;
-				} else {
-					timeZoneHour = ((int)absNumericToken)/100;
-					timeZoneMinute = ((int)absNumericToken)%100;
-				}
-				final String customID = "GMT" + (isNegative ? "-" : "+") + timeZoneHour + ":" + String.format("%02d", timeZoneMinute);
-				state.setTimeZone(TimeZone.getTimeZone(customID));
+			final long absNumericToken = Math.abs(numericToken);
+			final boolean isNegative = numericToken < 0;
+			// e.g. -5 or -0500 or +0530
+			if (absNumericToken <= 18) {
+				state.setTimeZone(offsetTimeZone(isNegative, (int) absNumericToken, 0));
 				return;
 			}
-			throw new RosemaryDateTimeException("Found unknown number");
+			if (absNumericToken >= 100 && absNumericToken <= 1800 && ((absNumericToken % 100) < 60) && ((absNumericToken % 100) % 15 == 0)) {
+				state.setTimeZone(offsetTimeZone(isNegative, (int) absNumericToken / 100, (int) absNumericToken % 100));
+				return;
+			}
+			throw new RosemaryDateTimeException("Found unknown number: " + numericToken);
 		}
 
 		// negative numbers
@@ -503,7 +540,10 @@ public class RosemaryDateTimeParser {
 			return;
 		}
 
-		int intNumericToken = (int)numericToken;
+		if (numericToken > Integer.MAX_VALUE) {
+			throw new RosemaryDateTimeException("Value out of range: " + numericToken);
+		}
+		final int intNumericToken = (int) numericToken;
 
 		if (intNumericToken > 9999) {
 			parseNumericBlob(intNumericToken, state);
@@ -660,23 +700,20 @@ public class RosemaryDateTimeParser {
 	 * @return parsed dateTimeString
 	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
 	 */
-	private OffsetDateTime parseInternal(final String dateTimeString, final RosemaryDateOrder rosemaryParserDateOrder, final RosemaryDateTimeState defaultDateTimeState) throws RosemaryDateTimeException {
+	private OffsetDateTime parseInternal(final String dateTimeString, final RosemaryDateOrder rosemaryParserDateOrder, RosemaryDateTimeState defaultDateTimeState) throws RosemaryDateTimeException {
 		if (dateTimeString == null) {
 			return null;
 		}
+		if (defaultDateTimeState == null) {
+			defaultDateTimeState = new RosemaryDateTimeState(rosemaryParserDateOrder);
+		}
 
-		final String upperDateTimeString = dateTimeString.toUpperCase();
+		final String upperDateTimeString = dateTimeString.toUpperCase(Locale.ROOT);
 		final RosemaryDateTimeState dateTimeState = new RosemaryDateTimeState(rosemaryParserDateOrder);
 
-		// split on dash, unless it is prefixed by whitespace or the text.  if the text is prefixed, then it is likely GMT or UTC and there is a timezone offset nearby
-		// split on forward slash, unless it is prefixed and suffixed by A-Z characters, which means it is likely a timezone string like: America/Detroit
-		// split on whitespace, comma, parentheses, single quote, double quote.
-		final Pattern tokenPattern = Pattern.compile("((?<!([\\s\\h])|[A-Za-z()])-|((?<=[^A-Za-z])/(?=[^A-za-z]))|[\\s\\h,)('\"])+");
-		String[] tokens = tokenPattern.split(upperDateTimeString);
+		String[] tokens = TOKEN_PATTERN.split(upperDateTimeString);
 		// remove boring tokens that might exist based on the regex
-		tokens = Arrays.stream(tokens).filter(token -> {
-			return !(token.matches("-+") || token.isBlank());
-		}).toArray(String[]::new);
+		tokens = Arrays.stream(tokens).filter(token -> !(token.isBlank() || DASHES_PATTERN.matcher(token).matches())).toArray(String[]::new);
 		for (String token : tokens) {
 			try {
 				// try to decipher next token as a number
@@ -779,7 +816,17 @@ public class RosemaryDateTimeParser {
 			throw new RosemaryDateTimeException("Missing " + missingText + " in: " + dateTimeString);
 		}
 
-		return ParsingUtilities.calendarToOffsetDateTime(dateTimeState.asCalendar());
+		// reject dates like February 31st, instead of rolling them over into the next month
+		final int lengthOfMonth = YearMonth.of(dateTimeState.getYear(), dateTimeState.getMonth()).lengthOfMonth();
+		if (dateTimeState.getDay() > lengthOfMonth) {
+			throw new RosemaryDateTimeException("Bad day " + dateTimeState.getDay() + " for month " + dateTimeState.getMonth() + " in: " + dateTimeString);
+		}
+
+		try {
+			return ParsingUtilities.calendarToOffsetDateTime(dateTimeState.asCalendar());
+		} catch (DateTimeException | IllegalArgumentException e) {
+			throw new RosemaryDateTimeException("Unable to parse: " + dateTimeString, e);
+		}
 	}
 
 	/**
@@ -818,6 +865,9 @@ public class RosemaryDateTimeParser {
 	 * @throws RosemaryDateTimeException if the dateTimeString is invalid
 	 */
 	private OffsetDateTime parseInternal(final String dateTimeString, final List<String> formats) throws RosemaryDateTimeException {
+		if (dateTimeString == null) {
+			return null;
+		}
 		Locale locale = Locale.getDefault(Locale.Category.FORMAT);
 		formatLoop:
 		for (String format : formats) {

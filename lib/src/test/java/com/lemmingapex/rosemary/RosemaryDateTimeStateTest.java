@@ -8,7 +8,9 @@ import java.util.Set;
 import java.util.TimeZone;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests methods in {@link RosemaryDateTimeState}.
@@ -61,5 +63,30 @@ public class RosemaryDateTimeStateTest {
 		assertNotEquals(rosemaryDateTimeState1, rosemaryDateTimeState2);
 		rosemaryDateTimeState2.setTimeZone(TimeZone.getTimeZone(ZoneId.of("America/New_York")));
 		assertEquals(rosemaryDateTimeState1, rosemaryDateTimeState2);
+	}
+
+	@Test
+	public void testTimePostMeridian() throws RosemaryDateTimeException {
+		final RosemaryDateTimeState state = new RosemaryDateTimeState(RosemaryDateOrder.MM_DD_YY);
+		assertFalse(state.isTimePostMeridian());
+
+		state.setTimePostMeridian(true);
+		assertTrue(state.isTimePostMeridian());
+		state.setHour(12);
+		assertEquals(Integer.valueOf(12), state.getHour());
+		assertTrue(state.isTimePostMeridian());
+
+		state.setTimePostMeridian(false);
+		state.setHour(12);
+		assertEquals(Integer.valueOf(0), state.getHour());
+		assertFalse(state.isTimePostMeridian());
+
+		state.setTimePostMeridian(true);
+		state.setHour(7);
+		assertEquals(Integer.valueOf(19), state.getHour());
+
+		// the AM/PM indicator only applies to the next hour
+		state.setHour(7);
+		assertEquals(Integer.valueOf(7), state.getHour());
 	}
 }

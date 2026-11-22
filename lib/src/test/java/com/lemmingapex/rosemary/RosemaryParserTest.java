@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 
 import static org.junit.Assert.assertEquals;
@@ -295,5 +296,118 @@ public class RosemaryParserTest {
 	public void testNull() throws RosemaryDateTimeException {
 		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
 		assertNull(rosemaryDateTimeParser.parse(null));
+	}
+
+	@Test
+	public void testTimeZoneNamesEndingInAmOrPm() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000+01:00"), rosemaryDateTimeParser.parse("2008-03-05 07:02:00 Europe/Amsterdam"));
+		assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000+10:00"), rosemaryDateTimeParser.parse("2008-03-05 07:02:00 Pacific/Guam"));
+		assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000+13:45"), rosemaryDateTimeParser.parse("2008-03-05 07:02:00 Pacific/Chatham"));
+		assertEquals(OffsetDateTime.parse("2008-03-05T19:02:00.000+03:00"), rosemaryDateTimeParser.parse("March 5 2008 7:02pm Africa/Dar_es_Salaam"));
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("March 5 2008 10:00 zz:yy"));
+	}
+
+	@Test
+	public void testTimeZoneAbbreviationsThatLookLikeMonths() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000-09:30"), rosemaryDateTimeParser.parse("2024-03-05 10:00 MART"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000+07:00"), rosemaryDateTimeParser.parse("2024-03-05 10:00 NOVT"));
+	}
+
+	@Test
+	public void testMonthAndWeekdayNames() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2024-09-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("Sept. 5 2024"));
+		assertEquals(OffsetDateTime.parse("2024-09-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("Thurs. Sep 5 2024"));
+		assertEquals(OffsetDateTime.parse("2024-12-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("Dec 5 2024"));
+		// words that merely start with a month abbreviation are not months
+		assertEquals(OffsetDateTime.parse("2024-01-01T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("junk 2024"));
+		assertEquals(OffsetDateTime.parse("2024-01-01T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("Mayday 2024"));
+	}
+
+	@Test
+	public void testTwelveOClock() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2024-03-05T12:00:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12pm"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T12:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12:30pm"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T12:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12:30 PM"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12am"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12:30am"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 12:30 AM"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T11:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 11:30am"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T23:30:00.000+00:00"), rosemaryDateTimeParser.parse("3/5/2024 11:30pm"));
+	}
+
+	@Test
+	public void testInvalidDayOfMonth() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2024-02-29T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("2/29/2024"));
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("2/29/2023"));
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("2/31/2024"));
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("4/31/2024 10:00"));
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("2021-02-31", "yyyy-MM-dd"));
+	}
+
+	@Test
+	public void testTimeZoneWithoutTime() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertEquals(OffsetDateTime.parse("2019-03-05T00:00:00.000-07:00"), rosemaryDateTimeParser.parse("2019-03-05 America/Denver"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00:00.000-05:00"), rosemaryDateTimeParser.parse("March 5 2024 EST"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00:00.000+05:30"), rosemaryDateTimeParser.parse("March 5 2024 +05:30"));
+		final RosemaryDateTimeState defaultDateTimeState = new RosemaryDateTimeState(RosemaryDateOrder.MM_DD_YY);
+		defaultDateTimeState.setTimeZone(TimeZone.getTimeZone("America/Denver"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00:00.000-07:00"), rosemaryDateTimeParser.parse("March 5 2024", RosemaryDateOrder.MM_DD_YY, defaultDateTimeState));
+	}
+
+	@Test
+	public void testTimeZoneOffsetFormats() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		final OffsetDateTime expected = OffsetDateTime.parse("2024-03-05T10:00:00.000+05:30");
+		for (String offset : List.of("+05:30", "+5:30", "+0530", "GMT+05:30", "GMT+5:30", "UTC+0530", "UTC+530")) {
+			assertEquals(offset, expected, rosemaryDateTimeParser.parse("2024-03-05 10:00 " + offset));
+		}
+		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000-03:00"), rosemaryDateTimeParser.parse("2024-03-05 10:00 UTC-03"));
+	}
+
+	@Test
+	public void testInvalidTimeZoneOffsets() {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		// all of these used to either silently become UTC, or throw an unchecked java.time.DateTimeException
+		for (String input : List.of("2024-03-05 10:00 +19:00", "2024-03-05 10:00 +25:00", "2024-03-05 10:00 UTC+1900", "2024-03-05 10:00 GMT+05:75", "2024-03-05 10:00 +05:30:00", "2024-03-05 10:00 -19", "March 5 2024 19")) {
+			assertThrows(input, RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse(input));
+		}
+	}
+
+	@Test
+	public void testOutOfRangeNumbers() {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("99999999999 March"));
+	}
+
+	@Test
+	public void testDefaultLocaleIndependence() throws RosemaryDateTimeException {
+		final Locale originalLocale = Locale.getDefault();
+		try {
+			// in Turkish, "i".toUpperCase() is "İ", which used to break matching of words like "first"
+			Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+			final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+			assertEquals(OffsetDateTime.parse("1988-03-31T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("March Thirty-first 1988"));
+			assertEquals(OffsetDateTime.parse("2008-03-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("The fifth of March 2008"));
+			assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000+10:00"), rosemaryDateTimeParser.parse("2008-03-05 07:02 Pacific/Guam"));
+			assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000-05:00"), rosemaryDateTimeParser.parse("2008-03-05 07:02 america/indiana/indianapolis"));
+			assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000-08:00"), rosemaryDateTimeParser.parse("2008-03-05 07:02 pst"));
+		} finally {
+			Locale.setDefault(originalLocale);
+		}
+	}
+
+	@Test
+	public void testNullArguments() throws RosemaryDateTimeException {
+		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser();
+		assertNull(rosemaryDateTimeParser.parse(null, "yyyy-MM-dd"));
+		assertNull(rosemaryDateTimeParser.parse(null, List.of()));
+		assertNull(rosemaryDateTimeParser.parse(null, RosemaryDateOrder.DD_MM_YY));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00:00.000+00:00"), rosemaryDateTimeParser.parse("March 5 2024", RosemaryDateOrder.MM_DD_YY, null));
 	}
 }

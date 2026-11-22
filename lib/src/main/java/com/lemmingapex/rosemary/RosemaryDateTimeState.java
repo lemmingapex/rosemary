@@ -53,7 +53,7 @@ public class RosemaryDateTimeState {
 	 */
 	private Integer year = null;
 	/**
-	 * month (0-11).
+	 * month (1-12).
 	 */
 	private Integer month = null;
 	/**
@@ -83,9 +83,9 @@ public class RosemaryDateTimeState {
 	private TimeZone timeZone = null;
 
 	/**
-	 * <code>true</code> if time is after noon, false otherwise.
+	 * AM/PM indicator to apply to the next hour that is set: <code>true</code> for PM, <code>false</code> for AM, <code>null</code> if none was given.
 	 */
-	private boolean timePostMeridian = false;
+	private Boolean timePostMeridian = null;
 
 	/**
 	 * Datetime state used by {@link RosemaryDateTimeParser}.
@@ -248,7 +248,10 @@ public class RosemaryDateTimeState {
 	 * @return <code>true</code> if time is P.M.
 	 */
 	public boolean isTimePostMeridian() {
-		return (this.timePostMeridian || this.hour > 12);
+		if (this.hour != null) {
+			return this.hour >= 12;
+		}
+		return Boolean.TRUE.equals(this.timePostMeridian);
 	}
 
 
@@ -322,18 +325,19 @@ public class RosemaryDateTimeState {
 	}
 
 	/**
-	 * Set the hour of the day.
+	 * Set the hour of the day.  If an AM/PM indicator was set with {@link #setTimePostMeridian(boolean)}, it is applied
+	 * to a 12-hour clock value and then cleared, e.g. 12 AM is hour 0 and 12 PM is hour 12.
 	 *
 	 * @param hour hour of the day: 0-23
 	 * @throws RosemaryDateTimeException if the value is not a valid hour of the day
 	 */
 	public void setHour(int hour) throws RosemaryDateTimeException {
-		final int tmpHour;
-		if (timePostMeridian) {
-			tmpHour = hour + 12;
-			timePostMeridian = false;
-		} else {
-			tmpHour = hour;
+		int tmpHour = hour;
+		if (timePostMeridian != null) {
+			if (hour >= 0 && hour <= 12) {
+				tmpHour = (hour % 12) + (timePostMeridian ? 12 : 0);
+			}
+			timePostMeridian = null;
 		}
 
 		if (tmpHour < 0 || tmpHour > 23) {
@@ -395,9 +399,9 @@ public class RosemaryDateTimeState {
 	}
 
 	/**
-	 * Set the AM/PM indicator value.
+	 * Set the AM/PM indicator value, which is applied to the next call to {@link #setHour(int)}.
 	 *
-	 * @param timePostMeridian <code>true</code> if time represented is after noon
+	 * @param timePostMeridian <code>true</code> for PM, <code>false</code> for AM
 	 */
 	public void setTimePostMeridian(boolean timePostMeridian) {
 		this.timePostMeridian = timePostMeridian;
@@ -409,7 +413,7 @@ public class RosemaryDateTimeState {
 	 * @return {@link GregorianCalendar} representing the date time
 	 */
 	public GregorianCalendar asCalendar() {
-		final GregorianCalendar cal = new GregorianCalendar(TimeZone.getTimeZone("Z"));
+		final GregorianCalendar cal = new GregorianCalendar(timeZone != null ? timeZone : TimeZone.getTimeZone("Z"));
 		cal.clear();
 		if (year != null) {
 			cal.set(Calendar.YEAR, year);
@@ -432,10 +436,6 @@ public class RosemaryDateTimeState {
 					}
 				}
 			}
-
-			if (timeZone != null) {
-				cal.setTimeZone(timeZone);
-			}
 		}
 		return cal;
 	}
@@ -445,7 +445,7 @@ public class RosemaryDateTimeState {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		RosemaryDateTimeState that = (RosemaryDateTimeState) o;
-		return yearBeforeMonth == that.yearBeforeMonth && yearBeforeDay == that.yearBeforeDay && monthBeforeDay == that.monthBeforeDay && timePostMeridian == that.timePostMeridian && Objects.equals(year, that.year) && Objects.equals(month, that.month) && Objects.equals(day, that.day) && Objects.equals(hour, that.hour) && Objects.equals(minute, that.minute) && Objects.equals(second, that.second) && Objects.equals(millisecond, that.millisecond) && Objects.equals(timeZone, that.timeZone);
+		return yearBeforeMonth == that.yearBeforeMonth && yearBeforeDay == that.yearBeforeDay && monthBeforeDay == that.monthBeforeDay && Objects.equals(timePostMeridian, that.timePostMeridian) && Objects.equals(year, that.year) && Objects.equals(month, that.month) && Objects.equals(day, that.day) && Objects.equals(hour, that.hour) && Objects.equals(minute, that.minute) && Objects.equals(second, that.second) && Objects.equals(millisecond, that.millisecond) && Objects.equals(timeZone, that.timeZone);
 	}
 
 	@Override

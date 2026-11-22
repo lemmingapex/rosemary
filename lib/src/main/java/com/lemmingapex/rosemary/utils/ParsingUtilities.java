@@ -21,9 +21,9 @@ public class ParsingUtilities {
 	 * Tries to parse a date using the provided format and locale with {@link java.time}.
 	 *
 	 * @param dateTimeString the datetime to parse
-	 * @param format to be interrupted by {@link DateTimeFormatter}.  {@link SimpleDateFormat} will be used if {@link DateTimeFormatter} fails.
+	 * @param format to be interpreted by {@link DateTimeFormatter}.  {@link SimpleDateFormat} will be used if {@link DateTimeFormatter} fails.
 	 * @param locale the locale to use
-	 * @return
+	 * @return the parsed datetime, or <code>null</code> if it could not be parsed
 	 */
 	static public OffsetDateTime javaTimeParse(String dateTimeString, String format, Locale locale) {
 		try {
@@ -46,6 +46,8 @@ public class ParsingUtilities {
 
 		try {
 			SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format, locale);
+			// don't roll invalid dates like February 31st over into the next month
+			simpleDateFormat.setLenient(false);
 			simpleDateFormat.setTimeZone(TimeZone.getTimeZone("Z"));
 			Date date = simpleDateFormat.parse(dateTimeString);
 			GregorianCalendar c = new GregorianCalendar();
@@ -64,9 +66,12 @@ public class ParsingUtilities {
 	 * Tries to parse a datetime using the default {@link ParsingUtilities#DATETIME_FORMAT} with {@link java.time}.
 	 *
 	 * @param dateTimeString the datetime to parse
-	 * @return
+	 * @return the parsed datetime, or <code>null</code> if it could not be parsed
 	 */
 	static public OffsetDateTime javaTimeParse(String dateTimeString) {
+		if (dateTimeString == null) {
+			return null;
+		}
 		try {
 			return OffsetDateTime.parse(dateTimeString, DATETIME_FORMAT);
 		} catch (DateTimeParseException e) {
