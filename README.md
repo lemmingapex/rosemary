@@ -188,8 +188,20 @@ To run the benchmarks, which takes about 30 seconds:
 To contribute, see [CONTRIBUTING.md](CONTRIBUTING.md).  To publish a release, see [RELEASING.md](RELEASING.md).
 
 ## Alternatives
-* `java.time.format.DateTimeFormatter` - The built-in Java formatter, which always requires a pattern
-* https://github.com/samtingleff/jchronic - Natural language parsing, which fails on many common date formats
+Other Java libraries for parsing dates and times, by approach.
+
+Pattern-free parsing of many formats:
+* [dateparser](https://github.com/sisyphsu/dateparser) - Parses hundreds of formats with built-in, extensible regex rules.  Last release 1.0.11, September 2022.
+
+Natural language, like `next Tuesday` or `the day after tomorrow`:
+* [Natty](https://github.com/natty-parser/natty) - Community-maintained copy of the original, which was abandoned in 2017.  Last release January 2017.
+* [jchronic](https://github.com/samtingleff/jchronic) - Port of Ruby's Chronic.  Published only as a snapshot, on Clojars.
+* [Hawking](https://github.com/zoho/hawking) - Finds dates in free text, including fiscal years and quarters.  GPL-3.0 licensed.
+* [SUTime](https://stanfordnlp.github.io/CoreNLP/sutime.html) - Finds and normalizes dates, times and durations in English text, as part of the Stanford CoreNLP toolkit.
+
+A pattern, or a list of patterns to try:
+* `java.time.format.DateTimeFormatter` - The built-in Java formatter.  Rosemary uses it for [patterns](#patterns).
+* Apache Commons Lang `DateUtils.parseDate` and `parseDateStrictly` - Try a list of patterns in order.
 
 ## Possible Future Work
 * Internationalization and localization: month and weekday names in other languages (help wanted)
