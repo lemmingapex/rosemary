@@ -66,6 +66,11 @@ To test:
 ./gradlew test --rerun-tasks
 ```
 
+The library is compiled with JDK 17, and the tests run on JDK 17 by default. To run the tests on another JDK (CI runs 17, 21 and 25):  
+```zsh
+./gradlew test --rerun-tasks -PtestJavaVersion=25
+```
+
 ## Alternatives
 * java.time.format.DateTimeFormatter - The built-in java formatter that always requires a pattern
 * https://github.com/samtingleff/jchronic - Natural language parsing, fails on many common date formats

@@ -1,8 +1,4 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# This workflow will build a Java project with Gradle and cache/restore any dependencies to improve the workflow execution time
+# Builds the library with Gradle, and runs the tests on each supported JDK.
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-gradle
 
 name: Java CI with Gradle
@@ -18,17 +14,30 @@ permissions:
 
 jobs:
   build:
-
+    name: Build and test on JDK ${{ matrix.test-java }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the library is compiled with JDK 17 (see lib/build.gradle.kts), and the tests run on each of these JDKs
+        test-java: [ '17', '21', '25' ]
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up JDKs
+      uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
       with:
-        java-version: '17'
         distribution: 'temurin'
-    - name: Build with Gradle
-      uses: gradle/gradle-build-action@bd5760595778326ba7f1441bcf7e88b49de61a25 # v2.6.0
-      with:
-        arguments: build
+        # the last version listed becomes the default JDK, which runs Gradle
+        java-version: |
+          ${{ matrix.test-java }}
+          17
+
+    # also validates the Gradle wrapper jar
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+    - name: Build and test
+      # use the JDKs installed above, instead of downloading toolchains
+      run: ./gradlew build -PtestJavaVersion=${{ matrix.test-java }} -Porg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_${{ matrix.test-java }}_X64
