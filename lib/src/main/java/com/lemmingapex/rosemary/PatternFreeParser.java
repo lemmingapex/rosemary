@@ -44,6 +44,16 @@ final class PatternFreeParser {
 	 */
 	private static final Pattern NUMBER_WITH_PERIOD = Pattern.compile("\\d+\\.");
 
+	/**
+	 * A date with colons, year first, like 2024:03:05 in Exif.
+	 */
+	private static final Pattern COLON_DATE = Pattern.compile("(\\d{4}):(\\d{1,2}):(\\d{1,2})");
+
+	/**
+	 * A year joined to a time with seconds by a colon, like 2024:19:02:13 in Apache logs.
+	 */
+	private static final Pattern YEAR_AND_TIME = Pattern.compile("(\\d{4}):(\\d{1,2}:\\d{1,2}:.+)");
+
 	private final TimeZoneNames timeZoneNames;
 
 	PatternFreeParser(TimeZoneNames timeZoneNames) {
@@ -220,6 +230,10 @@ final class PatternFreeParser {
 		if (!time.matches()) {
 			throw new ParseFailure("Bad time " + token);
 		}
+		// a second time would replace the first, so neither can be trusted
+		if (fields.isHourSet()) {
+			throw new ParseFailure("Two times");
+		}
 		if (time.group(5) != null) {
 			fields.setPendingMeridian(time.group(5).equals("PM"));
 		}
@@ -356,6 +370,27 @@ final class PatternFreeParser {
 			return;
 		}
 
+		// a year joined by colons to the month and day, like 2024:03:05, or to a time, like 2024:19:02:13.  An hour never has four digits.
+		final Matcher colonDate = COLON_DATE.matcher(token);
+		if (colonDate.matches()) {
+			if (fields.isYearSet() || fields.isMonthSet() || fields.isDaySet()) {
+				throw new ParseFailure("Two dates");
+			}
+			for (int group = 1; group <= 3; group++) {
+				parseNumericToken(colonDate.group(group), false, fields);
+			}
+			return;
+		}
+		final Matcher yearAndTime = YEAR_AND_TIME.matcher(token);
+		if (yearAndTime.matches()) {
+			if (fields.isYearSet()) {
+				throw new ParseFailure("Two years");
+			}
+			fields.setYear(Integer.parseInt(yearAndTime.group(1)), false);
+			parseTime(yearAndTime.group(2), fields);
+			return;
+		}
+
 		// time, like 7:02, 8AM or 8A.M.
 		final String time = withCompactMeridian(token);
 		if (isTime(time)) {
@@ -414,9 +449,6 @@ final class PatternFreeParser {
 	 * Use a time without colons, like 070210Z, by writing it with colons, like 07:02:10Z.
 	 */
 	private static void parseCompactTime(Matcher compactTime, DateTimeFields fields) throws ParseFailure {
-		if (fields.isHourSet()) {
-			throw new ParseFailure("Two times");
-		}
 		final StringBuilder time = new StringBuilder(compactTime.group(1)).append(':').append(compactTime.group(2));
 		if (compactTime.group(3) != null) {
 			time.append(':').append(compactTime.group(3));

@@ -22,6 +22,7 @@
 - Dotted dates (`05.03.2008`, `05.Mar.2008`), compact dates (`20240305`), and compact datetimes (`20240305193005`).
 - Times without colons after a date (`Mar 5, 2008 0702`), hours with AM or PM (`7 pm`), `a.m.` and `p.m.`, `noon` and `midnight`.
 - Seconds since the epoch.
+- Apache and nginx access log dates (`10/Oct/2000:13:55:36 -0700`), and Exif dates (`2024:03:05 19:02:13`).
 - An offset wins over a time zone name, e.g. `-0500 (EST)` in email dates, and `GMT -7`.
 - `parseZoned` methods, which return a `ZonedDateTime` that keeps the region, like `America/Denver`, when the string names one.
 - `findTimeZone(String)`, which finds a time zone by name the way the parser does.
@@ -43,6 +44,7 @@
 - Parsing depended on the system locale, e.g. ordinal words like `first` failed in Turkish.
 - Two-digit year rules were applied to years written with four digits, like `0050`.
 - Very large numbers overflowed.
+- A second time replaced the first, e.g. `2024-03-05 10:00 11:00` was 11:00.  It is rejected now.
 
 ## 1.0.0 (2024-03-07)
 

@@ -47,6 +47,10 @@ class DateTimeParsingTest {
 		22nd of June 2028 at 8am               | 2028-06-22T08:00:00Z
 		18:00 May 5 2024                       | 2024-05-05T18:00:00Z
 		Fri Jul 30 00:10:03 UTC 2021           | 2021-07-30T00:10:03Z
+		10/Oct/2000:13:55:36 -0700             | 2000-10-10T13:55:36-07:00
+		05/Mar/2008:07:02:10.123 +0100         | 2008-03-05T07:02:10.123+01:00
+		2008:03:05 07:02:10                    | 2008-03-05T07:02:10Z
+		2008:3:5                               | 2008-03-05T00:00:00Z
 		""")
 	void parsesDateTimes(String text, OffsetDateTime expected) {
 		assertEquals(expected, PARSER.parse(text));
