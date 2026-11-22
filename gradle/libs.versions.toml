@@ -3,6 +3,10 @@
 
 [versions]
 junit = "4.13.2"
+maven-publish = "0.37.0"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

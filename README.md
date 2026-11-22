@@ -71,6 +71,8 @@ The library is compiled with JDK 17, and the tests run on JDK 17 by default. To 
 ./gradlew test --rerun-tasks -PtestJavaVersion=25
 ```
 
+To publish a release, see [RELEASING.md](RELEASING.md).
+
 ## Alternatives
 * java.time.format.DateTimeFormatter - The built-in java formatter that always requires a pattern
 * https://github.com/samtingleff/jchronic - Natural language parsing, fails on many common date formats
