@@ -15,7 +15,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -36,6 +38,7 @@ class RoundTripTest {
 	private static final long SEED = 20261122L;
 	private static final int COUNT = 1_000;
 	private static final int MAX_REPORTED_FAILURES = 10;
+	private static final Map<Locale, RosemaryDateTimeParser> PARSERS = new ConcurrentHashMap<>();
 
 	/**
 	 * The smallest unit a format writes.  Smaller fields are not generated, so the string holds the whole datetime.
@@ -85,9 +88,10 @@ class RoundTripTest {
 	 * @param maxYear the last year to generate
 	 * @param dateOrder the date order to parse with
 	 * @param timeOnly <code>true</code> if the format has no date, so it is read as today
+	 * @param locale the locale to write and parse names in
 	 */
 	private record Format(String name, Function<ZonedDateTime, String> formatter, Precision precision, Zones zones, int minYear, int maxYear,
-		RosemaryDateOrder dateOrder, boolean timeOnly) {
+		RosemaryDateOrder dateOrder, boolean timeOnly, Locale locale) {
 
 		@Override
 		public String toString() {
@@ -215,7 +219,7 @@ class RoundTripTest {
 			pattern("MMMM uuuu", Precision.MONTH, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
 			pattern("EEEE, MMMM d, uuuu 'at' h:mm a", Precision.MINUTE, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
 			new Format("MMMM d'th', uuuu, with the day as an ordinal", RoundTripTest::ordinalDate, Precision.DAY, Zones.NONE,
-				FOUR_DIGIT_YEARS[0], FOUR_DIGIT_YEARS[1], mdy, false),
+				FOUR_DIGIT_YEARS[0], FOUR_DIGIT_YEARS[1], mdy, false, Locale.ENGLISH),
 
 			// times only, which are today
 			time("h:mm a", Precision.MINUTE),
@@ -224,10 +228,37 @@ class RoundTripTest {
 
 			// times since the epoch
 			new Format("seconds since the epoch", dateTime -> String.valueOf(dateTime.toEpochSecond()), Precision.SECOND, Zones.INSTANT,
-				EPOCH_YEARS[0], EPOCH_YEARS[1], mdy, false),
+				EPOCH_YEARS[0], EPOCH_YEARS[1], mdy, false, Locale.ENGLISH),
 			new Format("milliseconds since the epoch", dateTime -> String.valueOf(dateTime.toInstant().toEpochMilli()), Precision.MILLI,
-				Zones.INSTANT, EPOCH_YEARS[0], EPOCH_YEARS[1], mdy, false)
+				Zones.INSTANT, EPOCH_YEARS[0], EPOCH_YEARS[1], mdy, false, Locale.ENGLISH)
 		);
+	}
+
+	/**
+	 * Languages whose month names are words, to write dates in with the JDK's names, and read with a parser in the same locale.
+	 */
+	private static final List<String> LANGUAGES = List.of("fr", "de", "es", "it", "pt", "nl", "sv", "da", "nb", "fi", "pl", "cs", "sk", "hu",
+		"ro", "tr", "ru", "uk", "el", "ca", "hr", "sl", "id", "en-GB");
+
+	/**
+	 * Dates with month and weekday names in other languages: full and abbreviated, in the forms used in a date (M) and alone (L),
+	 * like Russian <code>марта</code> and <code>март</code>.
+	 */
+	static Stream<Format> localizedFormats() {
+		return LANGUAGES.stream().map(Locale::forLanguageTag).flatMap(locale -> Stream.of(
+			localized("d MMMM uuuu", Precision.DAY, locale),
+			localized("d MMM uuuu HH:mm", Precision.MINUTE, locale),
+			localized("EEEE d MMMM uuuu", Precision.DAY, locale),
+			localized("EEE d MMM uuuu", Precision.DAY, locale),
+			localized("LLLL uuuu", Precision.MONTH, locale),
+			localized("LLL uuuu", Precision.MONTH, locale)
+		));
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("localizedFormats")
+	void readsLocalizedDateTimes(Format format) {
+		readsFormattedDateTimes(format);
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -258,12 +289,12 @@ class RoundTripTest {
 	private static String check(Format format, ZonedDateTime dateTime, String text) {
 		final OffsetDateTime expected = format.zones() == Zones.INSTANT ? dateTime.toInstant().atOffset(ZoneOffset.UTC) : dateTime.toOffsetDateTime();
 		try {
-			final OffsetDateTime actual = PARSER.parse(text, format.dateOrder());
+			final OffsetDateTime actual = parser(format).parse(text, format.dateOrder());
 			if (!expected.equals(actual)) {
 				return "\"" + text + "\" -> " + actual + ", expected " + expected;
 			}
 			if (format.zones() == Zones.REGION) {
-				final ZoneId zone = PARSER.parseZoned(text, format.dateOrder()).getZone();
+				final ZoneId zone = parser(format).parseZoned(text, format.dateOrder()).getZone();
 				if (!zone.equals(dateTime.getZone())) {
 					return "\"" + text + "\" -> zone " + zone + ", expected " + dateTime.getZone();
 				}
@@ -314,22 +345,32 @@ class RoundTripTest {
 		};
 	}
 
+	private static RosemaryDateTimeParser parser(Format format) {
+		return format.locale().equals(Locale.ENGLISH) ? PARSER : PARSERS.computeIfAbsent(format.locale(), locale -> PARSER.toBuilder().locale(locale).build());
+	}
+
 	private static <T> T pick(List<T> values, Random random) {
 		return values.get(random.nextInt(values.size()));
 	}
 
 	private static Format format(String name, DateTimeFormatter formatter, Precision precision, Zones zones, int[] years, RosemaryDateOrder dateOrder) {
-		return new Format(name, formatter::format, precision, zones, years[0], years[1], dateOrder, false);
+		return new Format(name, formatter::format, precision, zones, years[0], years[1], dateOrder, false, Locale.ENGLISH);
 	}
 
 	private static Format pattern(String pattern, Precision precision, Zones zones, int[] years, RosemaryDateOrder dateOrder) {
 		final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, Locale.US);
-		return new Format(pattern, formatter::format, precision, zones, years[0], years[1], dateOrder, false);
+		return new Format(pattern, formatter::format, precision, zones, years[0], years[1], dateOrder, false, Locale.ENGLISH);
 	}
 
 	private static Format time(String pattern, Precision precision) {
 		final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, Locale.US);
-		return new Format(pattern, formatter::format, precision, Zones.NONE, THIS_YEAR[0], THIS_YEAR[1], RosemaryDateOrder.MM_DD_YY, true);
+		return new Format(pattern, formatter::format, precision, Zones.NONE, THIS_YEAR[0], THIS_YEAR[1], RosemaryDateOrder.MM_DD_YY, true, Locale.ENGLISH);
+	}
+
+	private static Format localized(String pattern, Precision precision, Locale locale) {
+		final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, locale);
+		return new Format(locale.toLanguageTag() + ": " + pattern, formatter::format, precision, Zones.NONE, FOUR_DIGIT_YEARS[0], FOUR_DIGIT_YEARS[1],
+			RosemaryDateOrder.MM_DD_YY, false, locale);
 	}
 
 	/**

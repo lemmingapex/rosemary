@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Locale;
 
 import static com.lemmingapex.rosemary.TestParsers.PARSER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,6 +66,16 @@ class ReadmeExamplesTest {
 		assertParses("2030-03-05T19:02Z", parser.parse("5/3 7:02 pm"));
 		assertParses("2030-07-05T19:02+01:00", parser.parse("5/7 7:02 pm"));
 		assertParses("2030-03-05T19:02+08:00", parser.parse("5/3 7:02 pm SGT"));
+	}
+
+	@Test
+	void languages() {
+		final RosemaryDateTimeParser french = PARSER.toBuilder().locale(Locale.FRENCH).build();
+		assertParses("2024-03-05T10:00Z", french.parse("mardi 5 mars 2024 10:00"));
+		assertParses("2024-02-01T00:00Z", french.parse("1er févr. 2024"));
+		assertParses("2024-03-05T10:00Z", french.parse("Tue, 05 Mar 2024 10:00:00 GMT"));
+		assertParses("2024-03-05T00:00Z", PARSER.toBuilder().locale(Locale.forLanguageTag("ru")).build().parse("5 марта 2024"));
+		assertParses("2024-02-05T00:00Z", french.parse("5 fevrier 2024"));
 	}
 
 	@Test

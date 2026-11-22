@@ -18,6 +18,7 @@ Open an issue with the string, the result you expected, and the result you got. 
 - `RosemaryDateTimeParser` is the public API and its builder.
 - `Tokenizer` splits a string into tokens, and `PatternFreeParser` decides what each token is.
 - `DateTimeFields` holds what was found, and fills in missing fields.
+- `DateNames` holds the month and weekday names, in English and the parser's locale.
 - `TimeZoneNames` holds the time zone abbreviations and region ids.
 - `FormatParser` parses with `DateTimeFormatter` patterns.
 

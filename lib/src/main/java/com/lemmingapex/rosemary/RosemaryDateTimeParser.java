@@ -64,7 +64,7 @@ public final class RosemaryDateTimeParser {
 		this.twoDigitYearStart = builder.twoDigitYearStart;
 		this.timeZoneAbbreviations = caseInsensitiveCopy(builder.timeZoneAbbreviations);
 		this.timeZoneNames = new TimeZoneNames(timeZoneAbbreviations);
-		this.patternFreeParser = new PatternFreeParser(timeZoneNames);
+		this.patternFreeParser = new PatternFreeParser(timeZoneNames, new DateNames(locale));
 	}
 
 	/**
@@ -309,7 +309,8 @@ public final class RosemaryDateTimeParser {
 	}
 
 	/**
-	 * Get the locale used for names, like month names, in {@link java.time.format.DateTimeFormatter} patterns.
+	 * Get the locale whose month and weekday names are read, as well as English names, and that is used for names in
+	 * {@link java.time.format.DateTimeFormatter} patterns.
 	 *
 	 * @return the locale
 	 */
@@ -402,8 +403,15 @@ public final class RosemaryDateTimeParser {
 		}
 
 		/**
-		 * Set the locale used for names, like month names, in {@link java.time.format.DateTimeFormatter} patterns.  The default is {@link Locale#ENGLISH}.
-		 * Pattern-free parsing always uses English names.
+		 * Set the language of month and weekday names.  The default is {@link Locale#ENGLISH}.
+		 * <p>
+		 * Without a pattern, the locale's names are read as well as English names, which are always read, since dates written by
+		 * programs, like in HTTP and email, are in English.  The names come from the JDK's locale data, in the forms used alone and in a date,
+		 * like Russian <code>март</code> and <code>марта</code>.  They are matched without case or accents, and an abbreviation can be the
+		 * first three or more letters of a name, if they start only one month's name.  Languages that write months as numbers, like Japanese
+		 * <code>3月</code>, add no names.  The locale doesn't change the date order.
+		 * <p>
+		 * With {@link java.time.format.DateTimeFormatter} patterns, names are only read in this locale.
 		 *
 		 * @param locale the locale
 		 * @return this builder
@@ -475,11 +483,11 @@ public final class RosemaryDateTimeParser {
 			if (TimeZoneNames.UTC_NAMES.contains(upperCase)) {
 				throw new IllegalArgumentException(abbreviation + " always means UTC, and can't be changed");
 			}
-			final List<Tokenizer.Token> tokens = Tokenizer.tokenize(abbreviation);
+			final List<Tokenizer.Token> tokens = Tokenizer.tokenize(abbreviation, DateNames.ENGLISH);
 			if (tokens.size() != 1 || !tokens.get(0).text().equals(upperCase)) {
 				throw new IllegalArgumentException("Bad time zone abbreviation: \"" + abbreviation + "\" has characters that separate the parts of a datetime");
 			}
-			if (PatternFreeParser.isDateTimeWord(upperCase)) {
+			if (PatternFreeParser.isDateTimeWord(upperCase, DateNames.ENGLISH)) {
 				throw new IllegalArgumentException("Bad time zone abbreviation: \"" + abbreviation + "\" is read as part of a date or time");
 			}
 		}

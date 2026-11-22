@@ -37,7 +37,7 @@ class TokenizerTest {
 		""")
 	void splitsIntoTokens(String text, String expected) {
 		final List<String> expectedTokens = expected.isEmpty() ? List.of() : Arrays.asList(expected.split(" "));
-		assertEquals(expectedTokens, Tokenizer.tokenize(text).stream().map(Tokenizer.Token::text).toList());
+		assertEquals(expectedTokens, Tokenizer.tokenize(text, DateNames.ENGLISH).stream().map(Tokenizer.Token::text).toList());
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -51,7 +51,7 @@ class TokenizerTest {
 		""")
 	void knowsWhereTokensStart(String text, String expected) {
 		final List<Integer> expectedStarts = Arrays.stream(expected.split(" ")).map(Integer::valueOf).toList();
-		assertEquals(expectedStarts, Tokenizer.tokenize(text).stream().map(Tokenizer.Token::start).toList());
+		assertEquals(expectedStarts, Tokenizer.tokenize(text, DateNames.ENGLISH).stream().map(Tokenizer.Token::start).toList());
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -61,7 +61,7 @@ class TokenizerTest {
 		2008-03-05t07:02        | 2008 03 05 07:02
 		""")
 	void upperCasesTokens(String text, String expected) {
-		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text).stream().map(Tokenizer.Token::text).toList());
+		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text, DateNames.ENGLISH).stream().map(Tokenizer.Token::text).toList());
 	}
 
 	@ParameterizedTest(name = "{0}")
@@ -78,6 +78,6 @@ class TokenizerTest {
 		UTC-05:00                    | UTC-05:00
 		""")
 	void splitsMonthNamesAndCompactTimes(String text, String expected) {
-		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text).stream().map(Tokenizer.Token::text).toList());
+		assertEquals(Arrays.asList(expected.split(" ")), Tokenizer.tokenize(text, DateNames.ENGLISH).stream().map(Tokenizer.Token::text).toList());
 	}
 }

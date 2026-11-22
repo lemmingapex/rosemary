@@ -6,7 +6,10 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,10 +19,13 @@ import java.util.regex.Pattern;
  */
 final class PatternFreeParser {
 
-	private static final List<String> WEEKDAY_NAMES = List.of("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
-	private static final List<String> MONTH_NAMES = List.of("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER");
 	private static final List<String> ORDINAL_NUMBERS = List.of("FIRST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH", "SEVENTH", "EIGHTH", "NINTH", "TENTH", "ELEVENTH", "TWELFTH", "THIRTEENTH", "FOURTEENTH", "FIFTEENTH", "SIXTEENTH", "SEVENTEENTH", "EIGHTEENTH", "NINETEENTH", "TWENTIETH", "TWENTYFIRST", "TWENTYSECOND", "TWENTYTHIRD", "TWENTYFOURTH", "TWENTYFIFTH", "TWENTYSIXTH", "TWENTYSEVENTH", "TWENTYEIGHTH", "TWENTYNINTH", "THIRTIETH", "THIRTYFIRST");
 	private static final List<String> ORDINAL_SUFFIXES = List.of("ST", "ND", "RD", "TH");
+
+	/**
+	 * The first in French, like 1er or 1re, or a number with an ordinal indicator, like 1º or 1ª in Spanish, Portuguese and Italian.
+	 */
+	private static final Pattern ORDINAL_INDICATOR = Pattern.compile("(\\d{1,2})(ER|RE|º|ª)");
 
 	/**
 	 * A number, with an optional sign.
@@ -55,9 +61,11 @@ final class PatternFreeParser {
 	private static final Pattern YEAR_AND_TIME = Pattern.compile("(\\d{4}):(\\d{1,2}:\\d{1,2}:.+)");
 
 	private final TimeZoneNames timeZoneNames;
+	private final DateNames names;
 
-	PatternFreeParser(TimeZoneNames timeZoneNames) {
+	PatternFreeParser(TimeZoneNames timeZoneNames, DateNames names) {
 		this.timeZoneNames = timeZoneNames;
+		this.names = names;
 	}
 
 	/**
@@ -69,8 +77,9 @@ final class PatternFreeParser {
 	 * @throws ParseFailure if a token can't be used, with the token's position
 	 */
 	DateTimeFields parse(String text, RosemaryDateOrder dateOrder) throws ParseFailure {
-		final List<Tokenizer.Token> tokens = Tokenizer.tokenize(text);
+		final List<Tokenizer.Token> tokens = Tokenizer.tokenize(text, names);
 		final DateTimeFields fields = new DateTimeFields(dateOrder);
+		final Set<Integer> weekdays = weekdayTokens(tokens);
 		// a number is alone if the other tokens are only words, like "at", weekdays and time zone names
 		final boolean loneNumber = tokens.stream().filter(token -> !isWord(withoutNumberPeriod(token.text()))).count() == 1;
 		int meridianStart = -1;
@@ -86,7 +95,8 @@ final class PatternFreeParser {
 					} else {
 						parseNumericToken(token, loneNumber, fields);
 					}
-				} else {
+				} else if (!weekdays.contains(i) && !isWordAm(tokens, i)) {
+					// weekday names don't change the date
 					if (meridian(token) != null) {
 						meridianStart = tokens.get(i).start();
 					}
@@ -103,6 +113,46 @@ final class PatternFreeParser {
 	}
 
 	/**
+	 * Find the tokens that are weekday names.  Some names are a month or a weekday, like <code>MAR</code>, which is March in English and
+	 * Spanish, but Tuesday in Spanish and French.  Such a name is a weekday if another token is only a month, like <code>mar. 5 mars</code>
+	 * in French, and otherwise the last name that could be a month is the month, like <code>mar 5 mar</code> in Spanish.
+	 *
+	 * @return the positions of the weekday names in the tokens
+	 */
+	private Set<Integer> weekdayTokens(List<Tokenizer.Token> tokens) {
+		final Set<Integer> weekdays = new HashSet<>();
+		final List<Integer> monthOrWeekday = new ArrayList<>();
+		boolean month = false;
+		for (int i = 0; i < tokens.size(); i++) {
+			final String token = tokens.get(i).text();
+			if (token.isEmpty() || Character.isDigit(token.charAt(0))) {
+				continue;
+			}
+			final boolean isMonth = names.monthNumber(token) != null;
+			if (names.isWeekdayName(token)) {
+				if (isMonth) {
+					monthOrWeekday.add(i);
+				} else {
+					weekdays.add(i);
+				}
+			} else if (isMonth) {
+				month = true;
+			}
+		}
+		if (!monthOrWeekday.isEmpty()) {
+			weekdays.addAll(month ? monthOrWeekday : monthOrWeekday.subList(0, monthOrWeekday.size() - 1));
+		}
+		return weekdays;
+	}
+
+	/**
+	 * Is the token the word "am", meaning "on", as in German "am 5. März"?  In German, "am" is only AM right after a time, like 7:02 am.
+	 */
+	private boolean isWordAm(List<Tokenizer.Token> tokens, int index) {
+		return names.amIsAWord() && tokens.get(index).text().equals("AM") && (index == 0 || !Character.isDigit(tokens.get(index - 1).text().charAt(0)));
+	}
+
+	/**
 	 * Remove the period from a number followed by a period, like <code>"5."</code> in "5. March 2008".
 	 */
 	private static String withoutNumberPeriod(String token) {
@@ -114,20 +164,20 @@ final class PatternFreeParser {
 	 * isn't, and the number is joined to the date, like 05 in "2008-03-05 PM", or follows a month name, like 5 in "Mar 5 PM".
 	 * Otherwise it is the hour, like 7 in "Mar 5 7 PM" or "7 PM Mar 5".
 	 */
-	private static boolean isDayBeforeMeridian(String text, List<Tokenizer.Token> tokens, int index, DateTimeFields fields) {
+	private boolean isDayBeforeMeridian(String text, List<Tokenizer.Token> tokens, int index, DateTimeFields fields) {
 		if (!fields.isMonthSet() || fields.isDaySet() || index == 0) {
 			return false;
 		}
 		final int start = tokens.get(index).start();
 		final boolean joinedToDate = start >= 2 && "-/.".indexOf(text.charAt(start - 1)) >= 0 && Character.isLetterOrDigit(text.charAt(start - 2));
-		return joinedToDate || monthNumber(tokens.get(index - 1).text()) != null;
+		return joinedToDate || names.monthNumber(tokens.get(index - 1).text()) != null;
 	}
 
 	/**
 	 * Is the token only a word, which doesn't add to the date or time: a weekday, a time zone name, or a word that is ignored, like "at"?
 	 */
-	private static boolean isWord(String token) {
-		return token.chars().noneMatch(Character::isDigit) && meridian(token) == null && monthNumber(token) == null && ordinalNumber(token) == null
+	private boolean isWord(String token) {
+		return token.chars().noneMatch(Character::isDigit) && meridian(token) == null && names.monthNumber(token) == null && ordinalNumber(token) == null
 			&& !token.equals("NOON") && !token.equals("MIDNIGHT");
 	}
 
@@ -138,9 +188,9 @@ final class PatternFreeParser {
 	 * @param token upper case token
 	 * @return <code>true</code> if the token is a number, a weekday or month name, an ordinal, AM or PM, noon or midnight, a time or an offset
 	 */
-	static boolean isDateTimeWord(String token) {
-		return NUMBER.matcher(withoutNumberPeriod(token)).matches() || isWeekdayName(token) || isOffset(token) || isTime(withCompactMeridian(token))
-			|| token.indexOf(':') >= 0 || isCompactTime(token) || meridian(token) != null || monthNumber(token) != null || ordinalNumber(token) != null
+	static boolean isDateTimeWord(String token, DateNames names) {
+		return NUMBER.matcher(withoutNumberPeriod(token)).matches() || names.isWeekdayName(token) || isOffset(token) || isTime(withCompactMeridian(token))
+			|| token.indexOf(':') >= 0 || isCompactTime(token) || meridian(token) != null || names.monthNumber(token) != null || ordinalNumber(token) != null
 			|| token.equals("NOON") || token.equals("MIDNIGHT");
 	}
 
@@ -154,12 +204,20 @@ final class PatternFreeParser {
 
 	/**
 	 * Translate an ordinal number, like <code>"1ST"</code>, <code>"23RD"</code> or <code>"TWENTY-THIRD"</code>, to its numeric value.
+	 * The first of the month in French, <code>"1ER"</code> or <code>"1RE"</code>, and numbers with an ordinal indicator, like Spanish
+	 * <code>"1º"</code>, are ordinals too.
 	 *
 	 * @param token upper case token
 	 * @return the numeric value, or <code>null</code> if the token is not an ordinal number
 	 */
 	static Integer ordinalNumber(String token) {
-		final String name = withoutPeriod(token);
+		final String name = DateNames.withoutPeriod(token);
+		final Matcher indicator = ORDINAL_INDICATOR.matcher(name);
+		if (indicator.matches()) {
+			final int number = Integer.parseInt(indicator.group(1));
+			// only the first is written 1er or 1re in French
+			return indicator.group(2).length() == 1 || number == 1 ? number : null;
+		}
 		if (name.length() <= 2) {
 			return null;
 		}
@@ -172,51 +230,6 @@ final class PatternFreeParser {
 				return Integer.parseInt(name.substring(0, name.length() - 2));
 			} catch (NumberFormatException e) {
 				return null;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Remove a trailing period from an abbreviated name, like <code>"SEPT."</code>.
-	 */
-	private static String withoutPeriod(String token) {
-		return token.endsWith(".") ? token.substring(0, token.length() - 1) : token;
-	}
-
-	/**
-	 * Is the token a weekday name, or an abbreviation of one with at least three letters, like <code>"WED"</code> or <code>"THURS."</code>?
-	 *
-	 * @param token upper case token
-	 * @return <code>true</code> if the token is a weekday name
-	 */
-	static boolean isWeekdayName(String token) {
-		final String name = withoutPeriod(token);
-		if (name.length() < 3) {
-			return false;
-		}
-		for (String weekdayName : WEEKDAY_NAMES) {
-			if (name.startsWith(weekdayName) || weekdayName.startsWith(name)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Translate a month name, or an abbreviation of one with at least three letters, like <code>"JAN"</code> or <code>"SEPT."</code>, to its number.
-	 *
-	 * @param token upper case token
-	 * @return the month number 1-12, or <code>null</code> if the token is not a month name
-	 */
-	static Integer monthNumber(String token) {
-		final String name = withoutPeriod(token);
-		if (name.length() < 3) {
-			return null;
-		}
-		for (int i = 0; i < MONTH_NAMES.size(); i++) {
-			if (MONTH_NAMES.get(i).startsWith(name)) {
-				return i + 1;
 			}
 		}
 		return null;
@@ -352,11 +365,6 @@ final class PatternFreeParser {
 	 * Other words are ignored, but other tokens with digits are rejected, so that part of a date or time isn't lost.
 	 */
 	private void parseNonNumericToken(String token, DateTimeFields fields) throws ParseFailure {
-		// weekday names don't change the date
-		if (isWeekdayName(token)) {
-			return;
-		}
-
 		// time zone offset, like -05:00 or GMT+5
 		if (isOffset(token)) {
 			parseTimeZoneOffset(token, fields);
@@ -413,10 +421,13 @@ final class PatternFreeParser {
 			return;
 		}
 
-		final Integer month = monthNumber(token);
+		final Integer month = names.monthNumber(token);
 		if (month != null) {
 			parseMonthName(month, fields);
 			return;
+		}
+		if (names.isAmbiguousMonth(token)) {
+			throw new ParseFailure("Ambiguous month " + token);
 		}
 
 		final Integer ordinal = ordinalNumber(token);

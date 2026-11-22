@@ -25,7 +25,7 @@ final class Tokenizer {
 	/**
 	 * Split a datetime string into upper case tokens.
 	 * <ul>
-	 * <li>whitespace, commas, parentheses and quotes separate tokens</li>
+	 * <li>whitespace, commas, parentheses, quotes and apostrophes separate tokens</li>
 	 * <li>a slash separates tokens, unless it is between two letters, as in a region id like America/Denver</li>
 	 * <li>a dash separates tokens, as in 2008-03-05 or 05-Mar-2008, unless it is part of an offset or a name: after whitespace or a parenthesis,
 	 * as in -05:00, after a word that isn't a month name, as in GMT-7 or Thirty-first, or after a time, as in 07:02:10-05:00</li>
@@ -39,9 +39,10 @@ final class Tokenizer {
 	 * the length of some characters, like ß.
 	 *
 	 * @param text datetime string
+	 * @param names month names, to tell a dash in a date, like 05-Mar-2008, from a dash in a name
 	 * @return the tokens
 	 */
-	static List<Token> tokenize(String text) {
+	static List<Token> tokenize(String text, DateNames names) {
 		final List<Token> tokens = new ArrayList<>();
 		final StringBuilder token = new StringBuilder();
 		int start = 0;
@@ -59,9 +60,9 @@ final class Tokenizer {
 			}
 
 			final boolean separator = switch (c) {
-				case ',', '(', ')', '\'', '"' -> true;
+				case ',', '(', ')', '\'', '"', '\u2018', '\u2019', '\u201C', '\u201D' -> true;
 				case '/' -> !(Character.isLetter(previous) && Character.isLetter(next));
-				case '-' -> isDashSeparator(token, previous, next, inTime);
+				case '-' -> isDashSeparator(token, previous, next, inTime, names);
 				case 'T', 't' -> isDigit(previous) && isDigit(next);
 				case '.' -> !inTime && ((isDigit(previous) && isDigit(next)) || (isDigit(previous) && Character.isLetter(next))
 					|| (Character.isLetter(previous) && isDigit(next)));
@@ -87,14 +88,15 @@ final class Tokenizer {
 	 * @param previous the character before the dash
 	 * @param next the character after the dash
 	 * @param inTime <code>true</code> if the token so far is a time, so a dash after it starts an offset, as in 07:02:10-05:00 or 7:02PM-05:00
+	 * @param names month names
 	 */
-	private static boolean isDashSeparator(StringBuilder token, char previous, char next, boolean inTime) {
+	private static boolean isDashSeparator(StringBuilder token, char previous, char next, boolean inTime, DateNames names) {
 		if (isWhitespace(previous) || previous == '(' || previous == ')' || inTime) {
 			return false;
 		}
 		if (Character.isLetter(previous)) {
 			// a month name before a digit is part of a date, like Mar in 05-Mar-2008.  After other words, the dash is a sign, as in GMT-7 or Etc/GMT-5.
-			return isDigit(next) && PatternFreeParser.monthNumber(token.toString().toUpperCase(Locale.ROOT)) != null;
+			return isDigit(next) && names.monthNumber(token.toString().toUpperCase(Locale.ROOT)) != null;
 		}
 		return true;
 	}

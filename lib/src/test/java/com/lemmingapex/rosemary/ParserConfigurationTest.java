@@ -206,8 +206,8 @@ class ParserConfigurationTest {
 	@Test
 	void defaultAbbreviationsCanBeFound() {
 		RosemaryDateTimeParser.defaultTimeZoneAbbreviations().forEach((abbreviation, zone) -> {
-			assertFalse(PatternFreeParser.isDateTimeWord(abbreviation), abbreviation);
-			assertEquals(List.of(abbreviation), Tokenizer.tokenize(abbreviation).stream().map(Tokenizer.Token::text).toList());
+			assertFalse(PatternFreeParser.isDateTimeWord(abbreviation, DateNames.ENGLISH), abbreviation);
+			assertEquals(List.of(abbreviation), Tokenizer.tokenize(abbreviation, DateNames.ENGLISH).stream().map(Tokenizer.Token::text).toList());
 		});
 	}
 }

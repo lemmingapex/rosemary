@@ -66,6 +66,7 @@ Rosemary is a Java module, `com.lemmingapex.rosemary`.
 * A datetime without a time zone is in UTC.
 * A missing time is midnight.  A missing year, month or day comes from today's date: `"6/19"` is June 19th of this year, and `"7pm"` is today.  Today's date is taken in the datetime's time zone.
 * A month without a day is the first of the month, and a year alone is January 1st.
+* Month and weekday names are in English.  [Other languages](#languages) can be added.
 * Words that aren't part of a datetime, like `of`, `at` or `the`, are ignored.  Weekday names are ignored too.
 * `parse(null)` returns `null`.
 
@@ -77,6 +78,18 @@ rosemary.parse("01/02/03", RosemaryDateOrder.DD_MM_YY);  // 2003-02-01T00:00Z
 rosemary.parse("01/02/03", RosemaryDateOrder.YY_MM_DD);  // 2001-02-03T00:00Z
 ```
 The order is only used when the values can't be told apart.  `31/12/2024` is December 31st in any order, and a date that starts with a full year, like `2024-12-05`, is year, month, day, unless the order puts the year first.
+
+### Languages
+Month and weekday names are always read in English.  To read them in another language too, set the parser's locale:
+```java
+RosemaryDateTimeParser french = RosemaryDateTimeParser.builder().locale(Locale.FRENCH).build();
+french.parse("mardi 5 mars 2024 10:00");        // 2024-03-05T10:00Z
+french.parse("1er févr. 2024");                  // 2024-02-01T00:00Z
+french.parse("Tue, 05 Mar 2024 10:00:00 GMT");   // 2024-03-05T10:00Z - English names still work, e.g. in HTTP and email dates
+```
+The names come from the JDK's locale data, so any language that writes month names as words works, like German, Spanish, Russian, Polish or Greek, including the forms used in a date, like Russian `5 марта 2024`.  Names are matched without case or accents, so `fevrier` is `février`, and an abbreviation can be the first three or more letters of a name, like `sept`, if they start only one month's name.  Languages that write months as numbers, like Chinese, Japanese and Korean, aren't supported yet.
+
+The locale doesn't change the date order.  For dates like `05.03.2024`, set `RosemaryDateOrder.DD_MM_YY` too.
 
 ### Time zones
 Rosemary understands:
@@ -163,7 +176,7 @@ parser.parse("5/3 7:02 pm");      // 2030-03-05T19:02Z
 parser.parse("5/7 7:02 pm");      // 2030-07-05T19:02+01:00
 parser.parse("5/3 7:02 pm SGT");  // 2030-03-05T19:02+08:00
 ```
-The builder can also set the locale for names in patterns (`locale`, English by default), the century of two-digit years (`twoDigitYearStart`), and replace all the abbreviations (`timeZoneAbbreviations`).  `parser.toBuilder()` starts a builder with an existing parser's settings.
+The builder can also set the language of month and weekday names (`locale`, see [Languages](#languages)), the century of two-digit years (`twoDigitYearStart`), and replace all the abbreviations (`timeZoneAbbreviations`).  `parser.toBuilder()` starts a builder with an existing parser's settings.
 
 ### Thread safety
 Parsers are immutable and thread-safe.  Create one, and share it.
@@ -204,7 +217,7 @@ A pattern, or a list of patterns to try:
 * Apache Commons Lang `DateUtils.parseDate` and `parseDateStrictly` - Try a list of patterns in order.
 
 ## Possible Future Work
-* Internationalization and localization: month and weekday names in other languages (help wanted)
+* Dates in languages that write months as numbers, like `2024年3月5日`, and times like `10h30` (help wanted)
 * More natural language, e.g. `the day after tomorrow` or `next Tuesday`
 
 ## License
