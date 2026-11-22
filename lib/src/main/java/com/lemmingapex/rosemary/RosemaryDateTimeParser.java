@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
@@ -20,7 +21,11 @@ import java.util.TreeMap;
  * <pre>{@code
  * RosemaryDateTimeParser rosemary = new RosemaryDateTimeParser();
  * OffsetDateTime dateTime = rosemary.parse("March 5, 2008 7:02 pm"); // 2008-03-05T19:02Z
+ * ZonedDateTime zoned = rosemary.parseZoned("2019-03-05 07:02 America/Denver"); // 2019-03-05T07:02-07:00[America/Denver]
  * }</pre>
+ * <p>
+ * {@code parse} methods return an {@link OffsetDateTime}.  {@code parseZoned} methods return a {@link ZonedDateTime}, which keeps
+ * the time zone's region, like America/Denver, when the string names one.
  * <p>
  * Use {@link #builder()} to change the defaults: the order of ambiguous dates like 01/02/03, the time zone, the clock that provides
  * today's date, and more.
@@ -40,6 +45,7 @@ public final class RosemaryDateTimeParser {
 	private final Locale locale;
 	private final int twoDigitYearStart;
 	private final Map<String, ZoneId> timeZoneAbbreviations;
+	private final TimeZoneNames timeZoneNames;
 	private final PatternFreeParser patternFreeParser;
 
 	/**
@@ -57,7 +63,8 @@ public final class RosemaryDateTimeParser {
 		this.locale = builder.locale;
 		this.twoDigitYearStart = builder.twoDigitYearStart;
 		this.timeZoneAbbreviations = caseInsensitiveCopy(builder.timeZoneAbbreviations);
-		this.patternFreeParser = new PatternFreeParser(new TimeZoneNames(timeZoneAbbreviations));
+		this.timeZoneNames = new TimeZoneNames(timeZoneAbbreviations);
+		this.patternFreeParser = new PatternFreeParser(timeZoneNames);
 	}
 
 	/**
@@ -82,7 +89,7 @@ public final class RosemaryDateTimeParser {
 	 * The time zone abbreviations recognized by default, like PST and CET, and the time zones they map to.
 	 * <p>
 	 * An abbreviation maps to a region, not a fixed offset, so CST and CDT both mean America/Chicago, and the offset depends on the date.
-	 * Region ids like America/Denver, and UTC, GMT, UT and Z, are always recognized and aren't included.
+	 * Region ids like America/Denver, and UTC, GMT, UT, Z and Zulu, are always recognized and aren't included.
 	 *
 	 * @return the default abbreviations, sorted by name, with case-insensitive keys.  The map can't be changed.
 	 */
@@ -112,9 +119,10 @@ public final class RosemaryDateTimeParser {
 	 * @param text the datetime to parse
 	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
 	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 * @see #parseZoned(String)
 	 */
 	public OffsetDateTime parse(String text) {
-		return parse(text, dateOrder);
+		return toOffsetDateTime(parseZoned(text));
 	}
 
 	/**
@@ -124,21 +132,10 @@ public final class RosemaryDateTimeParser {
 	 * @param dateOrder the order of the day, month and year in ambiguous dates
 	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
 	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 * @see #parseZoned(String, RosemaryDateOrder)
 	 */
 	public OffsetDateTime parse(String text, RosemaryDateOrder dateOrder) {
-		Objects.requireNonNull(dateOrder, "dateOrder");
-		if (text == null) {
-			return null;
-		}
-		try {
-			return patternFreeParser.parse(text, dateOrder).resolve(clock, defaultZone, twoDigitYearStart).toOffsetDateTime();
-		} catch (ParseFailure | DateTimeException e) {
-			final ZonedDateTime iso = FormatParser.parseIsoWithZone(text);
-			if (iso != null) {
-				return iso.toOffsetDateTime();
-			}
-			throw failure(text, e);
-		}
+		return toOffsetDateTime(parseZoned(text, dateOrder));
 	}
 
 	/**
@@ -152,10 +149,10 @@ public final class RosemaryDateTimeParser {
 	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
 	 * @throws RosemaryDateTimeException if the datetime doesn't match the pattern
 	 * @throws IllegalArgumentException if the pattern is invalid
+	 * @see #parseZoned(String, String)
 	 */
 	public OffsetDateTime parse(String text, String pattern) {
-		Objects.requireNonNull(pattern, "pattern");
-		return parse(text, List.of(pattern));
+		return toOffsetDateTime(parseZoned(text, pattern));
 	}
 
 	/**
@@ -166,8 +163,77 @@ public final class RosemaryDateTimeParser {
 	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
 	 * @throws RosemaryDateTimeException if the datetime doesn't match any of the patterns
 	 * @throws IllegalArgumentException if there are no patterns, or a pattern is invalid
+	 * @see #parseZoned(String, List)
 	 */
 	public OffsetDateTime parse(String text, List<String> patterns) {
+		return toOffsetDateTime(parseZoned(text, patterns));
+	}
+
+	/**
+	 * Parse a datetime in any format, and keep its time zone.  Otherwise the same as {@link #parse(String)}.
+	 * <p>
+	 * The time zone is the region if the string names one, like America/Denver, or an abbreviation for one, like MST.
+	 * It is the offset if the string has one, like -07:00, and the default zone if the string has neither.
+	 *
+	 * @param text the datetime to parse
+	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 */
+	public ZonedDateTime parseZoned(String text) {
+		return parseZoned(text, dateOrder);
+	}
+
+	/**
+	 * Parse a datetime in any format, with a date order for ambiguous dates like 01/02/03, and keep its time zone.
+	 * Otherwise the same as {@link #parseZoned(String)}.
+	 *
+	 * @param text the datetime to parse
+	 * @param dateOrder the order of the day, month and year in ambiguous dates
+	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 */
+	public ZonedDateTime parseZoned(String text, RosemaryDateOrder dateOrder) {
+		Objects.requireNonNull(dateOrder, "dateOrder");
+		if (text == null) {
+			return null;
+		}
+		try {
+			return patternFreeParser.parse(text, dateOrder).resolve(clock, defaultZone, twoDigitYearStart);
+		} catch (ParseFailure | DateTimeException e) {
+			final ZonedDateTime iso = FormatParser.parseIsoWithZone(text);
+			if (iso != null) {
+				return iso;
+			}
+			throw failure(text, e);
+		}
+	}
+
+	/**
+	 * Parse a datetime with a {@link java.time.format.DateTimeFormatter} pattern, and keep its time zone.
+	 * Otherwise the same as {@link #parse(String, String)}.
+	 *
+	 * @param text the datetime to parse
+	 * @param pattern the {@link java.time.format.DateTimeFormatter} pattern
+	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime doesn't match the pattern
+	 * @throws IllegalArgumentException if the pattern is invalid
+	 */
+	public ZonedDateTime parseZoned(String text, String pattern) {
+		Objects.requireNonNull(pattern, "pattern");
+		return parseZoned(text, List.of(pattern));
+	}
+
+	/**
+	 * Parse a datetime with the first of several {@link java.time.format.DateTimeFormatter} patterns that matches, and keep its time zone.
+	 * Otherwise the same as {@link #parse(String, List)}.
+	 *
+	 * @param text the datetime to parse
+	 * @param patterns the {@link java.time.format.DateTimeFormatter} patterns to try, in order
+	 * @return the datetime, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime doesn't match any of the patterns
+	 * @throws IllegalArgumentException if there are no patterns, or a pattern is invalid
+	 */
+	public ZonedDateTime parseZoned(String text, List<String> patterns) {
 		Objects.requireNonNull(patterns, "patterns");
 		if (patterns.isEmpty()) {
 			throw new IllegalArgumentException("No patterns");
@@ -176,10 +242,31 @@ public final class RosemaryDateTimeParser {
 			return null;
 		}
 		try {
-			return FormatParser.parse(text, patterns, locale, defaultZone, clock).toOffsetDateTime();
+			return FormatParser.parse(text, patterns, locale, defaultZone, clock);
 		} catch (ParseFailure e) {
 			throw failure(text, e);
 		}
+	}
+
+	/**
+	 * Find the time zone for a name, the same way this parser does when the name is in a datetime string.  Names are case-insensitive.
+	 * <ul>
+	 * <li>UTC, GMT, UT, Z and Zulu are a zero offset</li>
+	 * <li>an abbreviation, like PST, is the region this parser maps it to, like America/Los_Angeles</li>
+	 * <li>a region id, like america/denver, is that region</li>
+	 * </ul>
+	 * Offsets, like -05:00, aren't names.  Use {@link ZoneOffset#of(String)} for them.
+	 *
+	 * @param name the time zone name
+	 * @return the time zone, or empty if this parser doesn't recognize the name
+	 */
+	public Optional<ZoneId> findTimeZone(String name) {
+		Objects.requireNonNull(name, "name");
+		return Optional.ofNullable(timeZoneNames.find(TimeZoneNames.upperCase(name.strip())));
+	}
+
+	private static OffsetDateTime toOffsetDateTime(ZonedDateTime dateTime) {
+		return dateTime == null ? null : dateTime.toOffsetDateTime();
 	}
 
 	private static RosemaryDateTimeException failure(String text, Exception e) {

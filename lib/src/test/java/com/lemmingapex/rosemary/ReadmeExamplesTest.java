@@ -77,6 +77,24 @@ class ReadmeExamplesTest {
 	}
 
 	@Test
+	void zonedDateTimes() {
+		final RosemaryDateTimeParser rosemary = PARSER;
+		assertEquals("2024-03-09T12:00-07:00[America/Denver]", rosemary.parseZoned("2024-03-09 12:00 America/Denver").toString());
+		assertEquals("2024-03-10T12:00-06:00[America/Denver]", rosemary.parseZoned("2024-03-09 12:00 America/Denver").plusDays(1).toString());
+		assertEquals("2024-07-15T10:00-05:00[America/Chicago]", rosemary.parseZoned("2024-07-15 10:00 CST").toString());
+		assertEquals("2024-07-15T10:00-04:00", rosemary.parseZoned("2024-07-15 10:00 -04:00").toString());
+	}
+
+	@Test
+	void findTimeZone() {
+		final RosemaryDateTimeParser rosemary = PARSER;
+		assertEquals("Optional[America/Los_Angeles]", rosemary.findTimeZone("pst").toString());
+		assertEquals("Optional[America/Denver]", rosemary.findTimeZone("america/denver").toString());
+		assertEquals("Optional[Z]", rosemary.findTimeZone("Zulu").toString());
+		assertEquals("Optional.empty", rosemary.findTimeZone("MART").toString());
+	}
+
+	@Test
 	void errors() {
 		final RosemaryDateTimeException e = assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("February 30 2024"));
 		assertEquals("Unable to parse \"February 30 2024\": Bad day 30 for month 2 of 2024", e.getMessage());

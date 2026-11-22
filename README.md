@@ -82,7 +82,7 @@ The order is only used when the values can't be told apart.  `31/12/2024` is Dec
 Rosemary understands:
 * region ids, like `America/Denver`, in any case
 * offsets, like `-05:00`, `-0500`, `-5`, `GMT-5`, `UTC+05:30` or `(GMT -7)`
-* `UTC`, `GMT`, `UT` and `Z`, which always mean a zero offset
+* `UTC`, `GMT`, `UT`, `Z` and `Zulu`, which always mean a zero offset
 * the abbreviations used by current time zones, like `PST`, `CET` or `JST`.  `RosemaryDateTimeParser.defaultTimeZoneAbbreviations()` lists them.
 
 An abbreviation means its region, so `CST` and `CDT` both mean `America/Chicago`, and the offset depends on the date:
@@ -96,6 +96,24 @@ An offset is more precise than a name, so it wins when a datetime has both:
 ```java
 rosemary.parse("2024-07-15 10:00 -0400 (EST)");  // 2024-07-15T10:00-04:00
 ```
+
+`parse` returns an `OffsetDateTime`, which only keeps the offset.  To keep the region, like `America/Denver`, use `parseZoned`, which returns a `ZonedDateTime`.  Date arithmetic then follows the region's daylight saving rules:
+```java
+rosemary.parseZoned("2024-03-09 12:00 America/Denver");             // 2024-03-09T12:00-07:00[America/Denver]
+rosemary.parseZoned("2024-03-09 12:00 America/Denver").plusDays(1); // 2024-03-10T12:00-06:00[America/Denver]
+rosemary.parseZoned("2024-07-15 10:00 CST");                        // 2024-07-15T10:00-05:00[America/Chicago]
+rosemary.parseZoned("2024-07-15 10:00 -04:00");                     // 2024-07-15T10:00-04:00
+```
+Each `parse` method has a `parseZoned` version.
+
+To look up a time zone name the way the parser does, use `findTimeZone`:
+```java
+rosemary.findTimeZone("pst");            // Optional[America/Los_Angeles]
+rosemary.findTimeZone("america/denver"); // Optional[America/Denver]
+rosemary.findTimeZone("Zulu");           // Optional[Z]
+rosemary.findTimeZone("MART");           // Optional.empty
+```
+`parser.getTimeZoneAbbreviations()` lists the abbreviations a parser recognizes, and `ZoneId.getAvailableZoneIds()` lists the region ids.
 
 ### Numbers
 A number by itself is read by its length:
@@ -155,6 +173,7 @@ Parsers are immutable and thread-safe.  Create one, and share it.
 * `parse(text, dateOrder, defaultDateTimeState)` is gone.  Use `RosemaryDateTimeParser.builder()` with `clock(...)` for the date, and `defaultZone(...)` for the time zone.
 * `new RosemaryDateTimeParser(timeZoneProvider)` is gone.  Use `builder().timeZoneAbbreviations(...)` or `timeZoneAbbreviation(...)`.
 * `RosemaryDateTimeState`, `RosemaryTimeZoneProvider`, and the `utils` package (`TimeZoneUtils`, `ParsingUtilities`, `LinkedCaseInsensitiveMap`) are removed.
+* Instead of `TimeZoneUtils.getTimezoneNameToTimezoneMap()`, use `findTimeZone(name)` to look up a name, `getTimeZoneAbbreviations()` or `defaultTimeZoneAbbreviations()` for the abbreviations, and `ZoneId.getAvailableZoneIds()` for the region ids.
 * Patterns are `DateTimeFormatter` patterns only, with strict dates.  `SimpleDateFormat` patterns aren't supported, and the pattern locale is English unless set with `locale(...)`.
 * Some results change:
   * "Today" comes from the clock in the datetime's time zone, instead of the system time zone.

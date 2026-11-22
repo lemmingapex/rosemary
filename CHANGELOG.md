@@ -23,7 +23,9 @@
 - Times without colons after a date (`Mar 5, 2008 0702`), hours with AM or PM (`7 pm`), `a.m.` and `p.m.`, `noon` and `midnight`.
 - Seconds since the epoch.
 - An offset wins over a time zone name, e.g. `-0500 (EST)` in email dates, and `GMT -7`.
-- `RosemaryDateTimeParser.defaultTimeZoneAbbreviations()`.
+- `parseZoned` methods, which return a `ZonedDateTime` that keeps the region, like `America/Denver`, when the string names one.
+- `findTimeZone(String)`, which finds a time zone by name the way the parser does.
+- `RosemaryDateTimeParser.defaultTimeZoneAbbreviations()` and `getTimeZoneAbbreviations()`, which replace `TimeZoneUtils.getTimezoneNameToTimezoneMap()`.
 
 ### Fixed
 - Time zones whose names end in AM or PM, like `Europe/Amsterdam` and `Pacific/Guam`, threw an exception.
