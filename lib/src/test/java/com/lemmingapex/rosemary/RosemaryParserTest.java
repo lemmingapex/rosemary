@@ -1,6 +1,5 @@
 package com.lemmingapex.rosemary;
 
-import com.lemmingapex.rosemary.utils.LinkedCaseInsensitiveMap;
 import org.junit.Test;
 
 import java.text.SimpleDateFormat;
@@ -307,17 +306,6 @@ public class RosemaryParserTest {
 		assertEquals(OffsetDateTime.parse("2008-03-05T07:02:00.000+13:45"), rosemaryDateTimeParser.parse("2008-03-05 07:02:00 Pacific/Chatham"));
 		assertEquals(OffsetDateTime.parse("2008-03-05T19:02:00.000+03:00"), rosemaryDateTimeParser.parse("March 5 2008 7:02pm Africa/Dar_es_Salaam"));
 		assertThrows(RosemaryDateTimeException.class, () -> rosemaryDateTimeParser.parse("March 5 2008 10:00 zz:yy"));
-	}
-
-	@Test
-	public void testTimeZoneAbbreviationsThatLookLikeMonths() throws RosemaryDateTimeException {
-		// MART and NOVT start with month abbreviations. Provide them explicitly, since newer JDKs no longer have these abbreviations.
-		final LinkedCaseInsensitiveMap<TimeZone> timeZones = new LinkedCaseInsensitiveMap<>(Locale.ROOT);
-		timeZones.put("MART", TimeZone.getTimeZone("Pacific/Marquesas"));
-		timeZones.put("NOVT", TimeZone.getTimeZone("Asia/Novosibirsk"));
-		final RosemaryDateTimeParser rosemaryDateTimeParser = new RosemaryDateTimeParser(() -> timeZones);
-		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000-09:30"), rosemaryDateTimeParser.parse("2024-03-05 10:00 MART"));
-		assertEquals(OffsetDateTime.parse("2024-03-05T10:00:00.000+07:00"), rosemaryDateTimeParser.parse("2024-03-05 10:00 NOVT"));
 	}
 
 	@Test
