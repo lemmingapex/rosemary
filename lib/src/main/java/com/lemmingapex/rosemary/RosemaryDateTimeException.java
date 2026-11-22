@@ -1,24 +1,50 @@
 package com.lemmingapex.rosemary;
 
 import java.io.Serial;
+import java.time.DateTimeException;
 
 /**
- * Exception thrown when a date/time string cannot be parsed.
+ * Thrown when a datetime string can't be parsed.  It is unchecked, like the exceptions thrown by {@link java.time}.
  */
-public class RosemaryDateTimeException extends Exception {
+public class RosemaryDateTimeException extends DateTimeException {
 
 	@Serial
-	private static final long serialVersionUID = 7195725880623801298L;
+	private static final long serialVersionUID = 2L;
 
-	public RosemaryDateTimeException(String message) {
+	/**
+	 * The string that could not be parsed.
+	 */
+	private final String parsedString;
+
+	/**
+	 * Create an exception for a string that could not be parsed.
+	 *
+	 * @param message the reason the string could not be parsed
+	 * @param parsedString the string that could not be parsed
+	 */
+	public RosemaryDateTimeException(String message, String parsedString) {
 		super(message);
+		this.parsedString = parsedString;
 	}
 
-	public RosemaryDateTimeException(String message, Throwable cause) {
+	/**
+	 * Create an exception for a string that could not be parsed.
+	 *
+	 * @param message the reason the string could not be parsed
+	 * @param parsedString the string that could not be parsed
+	 * @param cause the underlying exception
+	 */
+	public RosemaryDateTimeException(String message, String parsedString, Throwable cause) {
 		super(message, cause);
+		this.parsedString = parsedString;
 	}
 
-	public RosemaryDateTimeException(Throwable cause) {
-		super(cause);
+	/**
+	 * Get the string that could not be parsed.
+	 *
+	 * @return the string that could not be parsed
+	 */
+	public String getParsedString() {
+		return parsedString;
 	}
 }
