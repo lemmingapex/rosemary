@@ -1,12 +1,6 @@
 <p align="center">
     <img src="rosemary.svg" alt="Rosemary logo" width="230"/>
 </p>
-<h3 align="center">Rosemary</h3>
-<p align="center">
-a robust and pattern-free datetime parser for java
-</p>
-
-
 
 # Rosemary
 [![Build Status](https://github.com/lemmingapex/rosemary/actions/workflows/gradle.yml/badge.svg?branch=main)](https://github.com/lemmingapex/rosemary/actions) [![Maven Central](https://img.shields.io/maven-central/v/com.lemmingapex/rosemary)](https://central.sonatype.com/artifact/com.lemmingapex/rosemary) [![Javadoc](https://javadoc.io/badge2/com.lemmingapex/rosemary/javadoc.svg)](https://javadoc.io/doc/com.lemmingapex/rosemary)
