@@ -25,7 +25,8 @@ import java.util.TreeMap;
  * }</pre>
  * <p>
  * {@code parse} methods return an {@link OffsetDateTime}.  {@code parseZoned} methods return a {@link ZonedDateTime}, which keeps
- * the time zone's region, like America/Denver, when the string names one.
+ * the time zone's region, like America/Denver, when the string names one.  {@code parseDetailed} methods return a
+ * {@link RosemaryParsedDateTime}, which also says what the string had, like the year or a time, and whether the date was ambiguous.
  * <p>
  * Use {@link #builder()} to change the defaults: the order of ambiguous dates like 01/02/03, the time zone, the clock that provides
  * today's date, and more.
@@ -38,6 +39,11 @@ public final class RosemaryDateTimeParser {
 	 * The default first year for two-digit years: '70 is 1970, and '69 is 2069.
 	 */
 	public static final int DEFAULT_TWO_DIGIT_YEAR_START = 1970;
+
+	/**
+	 * The date orders that are compared to find ambiguous dates: month first, day first and year first.
+	 */
+	private static final List<RosemaryDateOrder> USUAL_DATE_ORDERS = List.of(RosemaryDateOrder.MM_DD_YY, RosemaryDateOrder.DD_MM_YY, RosemaryDateOrder.YY_MM_DD);
 
 	private final RosemaryDateOrder dateOrder;
 	private final ZoneId defaultZone;
@@ -194,19 +200,84 @@ public final class RosemaryDateTimeParser {
 	 * @throws RosemaryDateTimeException if the datetime can't be parsed
 	 */
 	public ZonedDateTime parseZoned(String text, RosemaryDateOrder dateOrder) {
+		final RosemaryParsedDateTime parsed = parseDetailed(text, dateOrder, false);
+		return parsed == null ? null : parsed.toZonedDateTime();
+	}
+
+	/**
+	 * Parse a datetime in any format, and say what the string had and what was filled in.  Otherwise the same as {@link #parseZoned(String)}.
+	 * <pre>{@code
+	 * RosemaryParsedDateTime parsed = rosemary.parseDetailed("March 5");
+	 * parsed.toZonedDateTime(); // 2024-03-05T00:00Z
+	 * parsed.hasYear();         // false
+	 * parsed.hasTime();         // false
+	 * }</pre>
+	 * Patterns aren't supported, since a pattern says what the string has.
+	 *
+	 * @param text the datetime to parse
+	 * @return the datetime and what the string had, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 */
+	public RosemaryParsedDateTime parseDetailed(String text) {
+		return parseDetailed(text, dateOrder);
+	}
+
+	/**
+	 * Parse a datetime in any format, with a date order for ambiguous dates like 01/02/03, and say what the string had and what was
+	 * filled in.  Otherwise the same as {@link #parseDetailed(String)}.
+	 *
+	 * @param text the datetime to parse
+	 * @param dateOrder the order of the day, month and year in ambiguous dates
+	 * @return the datetime and what the string had, or <code>null</code> if <code>text</code> is <code>null</code>
+	 * @throws RosemaryDateTimeException if the datetime can't be parsed
+	 */
+	public RosemaryParsedDateTime parseDetailed(String text, RosemaryDateOrder dateOrder) {
+		return parseDetailed(text, dateOrder, true);
+	}
+
+	/**
+	 * @param findAmbiguity <code>true</code> to find out whether another date order reads a different date, which can take longer
+	 */
+	private RosemaryParsedDateTime parseDetailed(String text, RosemaryDateOrder dateOrder, boolean findAmbiguity) {
 		Objects.requireNonNull(dateOrder, "dateOrder");
 		if (text == null) {
 			return null;
 		}
 		try {
-			return patternFreeParser.parse(text, dateOrder).resolve(clock, defaultZone, twoDigitYearStart);
+			final DateTimeFields fields = patternFreeParser.parse(text, dateOrder);
+			// each date order reads today's date at the same instant
+			final Clock now = findAmbiguity && fields.isDateOrderUsed() ? Clock.fixed(clock.instant(), clock.getZone()) : clock;
+			final ZonedDateTime dateTime = fields.resolve(now, defaultZone, twoDigitYearStart);
+			return new RosemaryParsedDateTime(dateTime, fields.isYearSet(), fields.isMonthSet(), fields.isDaySet(), fields.isHourSet(), fields.isZoneSet(),
+				now != clock && isAmbiguous(text, dateOrder, fields, dateTime, now));
 		} catch (ParseFailure | DateTimeException e) {
 			final ZonedDateTime iso = FormatParser.parseIsoWithZone(text);
 			if (iso != null) {
-				return iso;
+				return new RosemaryParsedDateTime(iso, true, true, true, true, true, false);
 			}
 			throw failure(text, e);
 		}
+	}
+
+	/**
+	 * Does one of the usual date orders find the same fields, like the month and day, but read them as a different date?
+	 */
+	private boolean isAmbiguous(String text, RosemaryDateOrder dateOrder, DateTimeFields fields, ZonedDateTime dateTime, Clock now) {
+		for (RosemaryDateOrder other : USUAL_DATE_ORDERS) {
+			if (other == dateOrder) {
+				continue;
+			}
+			try {
+				final DateTimeFields otherFields = patternFreeParser.parse(text, other);
+				if (otherFields.isYearSet() == fields.isYearSet() && otherFields.isMonthSet() == fields.isMonthSet() && otherFields.isDaySet() == fields.isDaySet()
+					&& !otherFields.resolve(now, defaultZone, twoDigitYearStart).equals(dateTime)) {
+					return true;
+				}
+			} catch (ParseFailure | DateTimeException e) {
+				// the string isn't a date in that order
+			}
+		}
+		return false;
 	}
 
 	/**

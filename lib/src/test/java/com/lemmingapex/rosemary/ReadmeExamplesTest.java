@@ -12,7 +12,9 @@ import java.util.Locale;
 
 import static com.lemmingapex.rosemary.TestParsers.PARSER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The examples in README.md.  Keep them in sync.
@@ -68,6 +70,24 @@ class ReadmeExamplesTest {
 		assertParses("2030-03-05T19:02Z", parser.parse("5/3 7:02 pm"));
 		assertParses("2030-07-05T19:02+01:00", parser.parse("5/7 7:02 pm"));
 		assertParses("2030-03-05T19:02+08:00", parser.parse("5/3 7:02 pm SGT"));
+	}
+
+	@Test
+	void whatTheStringHad() {
+		final RosemaryParsedDateTime parsed = PARSER.parseDetailed("3/5 7pm");
+		assertParses("2024-03-05T19:00Z", parsed.toOffsetDateTime());
+		assertFalse(parsed.hasYear());
+		assertTrue(parsed.hasMonth());
+		assertTrue(parsed.hasDay());
+		assertTrue(parsed.hasTime());
+		assertFalse(parsed.hasZone());
+		assertTrue(parsed.isAmbiguous());
+		assertParses("2024-05-03T19:00Z", PARSER.parseDetailed("3/5 7pm", RosemaryDateOrder.DD_MM_YY).toOffsetDateTime());
+		assertTrue(PARSER.parseDetailed("01/02/03").isAmbiguous());
+		for (String text : List.of("31/12/2024", "March 5", "2024-12-05")) {
+			assertFalse(PARSER.parseDetailed(text).isAmbiguous(), text);
+		}
+		assertFalse(PARSER.parseDetailed("March 5").hasYear());
 	}
 
 	@Test

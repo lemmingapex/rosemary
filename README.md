@@ -81,6 +81,20 @@ rosemary.parse("01/02/03", RosemaryDateOrder.YY_MM_DD);  // 2001-02-03T00:00Z
 ```
 The order is only used when the values can't be told apart.  `31/12/2024` is December 31st in any order, and a date that starts with a full year, like `2024-12-05`, is year, month, day, unless the order starts with the year: `YY_DD_MM` reads it as May 12th.
 
+### What the string had
+`parse` always returns a complete datetime, so its result for `"March 5"` doesn't say that the year, time and time zone were filled in.  `parseDetailed` also says which parts the string had, and whether the date order decided the date:
+```java
+RosemaryParsedDateTime parsed = rosemary.parseDetailed("3/5 7pm");
+parsed.toOffsetDateTime(); // 2024-03-05T19:00Z
+parsed.hasYear();          // false - this year
+parsed.hasMonth();         // true
+parsed.hasDay();           // true
+parsed.hasTime();          // true
+parsed.hasZone();          // false - the default zone
+parsed.isAmbiguous();      // true - day first, it is May 3rd
+```
+A date is ambiguous if month first, day first or year first would read the same parts as a different date, like `3/5` or `01/02/03`.  `31/12/2024`, `March 5` and `2024-12-05` aren't.  `toZonedDateTime()` keeps the time zone's region, like `parseZoned`.
+
 ### Languages
 Month and weekday names are always read in English.  To read them in another language too, set the parser's locale:
 ```java

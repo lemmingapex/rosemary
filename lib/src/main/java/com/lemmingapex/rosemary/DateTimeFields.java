@@ -34,6 +34,10 @@ final class DateTimeFields {
 	 * <code>true</code> if the year was written first, with three or more digits, like 2024-12-05.
 	 */
 	private boolean yearWrittenFirst;
+	/**
+	 * <code>true</code> if the date order was looked at, so another date order might have read the string differently.
+	 */
+	private boolean dateOrderUsed;
 
 	/**
 	 * AM/PM indicator to apply to the next hour that is set: <code>true</code> for PM, <code>false</code> for AM, <code>null</code> if none was given.
@@ -44,8 +48,19 @@ final class DateTimeFields {
 		this.dateOrder = dateOrder;
 	}
 
+	/**
+	 * Get the date order, to decide which value is the day, month or year.
+	 */
 	RosemaryDateOrder dateOrder() {
+		dateOrderUsed = true;
 		return dateOrder;
+	}
+
+	/**
+	 * @return <code>true</code> if the date order was looked at.  If it wasn't, every date order reads the string the same way.
+	 */
+	boolean isDateOrderUsed() {
+		return dateOrderUsed;
 	}
 
 	boolean isYearSet() {
@@ -66,6 +81,10 @@ final class DateTimeFields {
 
 	boolean isHourSet() {
 		return hour != null;
+	}
+
+	boolean isZoneSet() {
+		return zone != null;
 	}
 
 	boolean isOffsetSet() {
@@ -232,7 +251,7 @@ final class DateTimeFields {
 	}
 
 	/**
-	 * Fill in the missing fields, and build the datetime.
+	 * Fill in the missing fields, and build the datetime.  The fields don't change, so what was found can still be read.
 	 * <ul>
 	 * <li>a month without a day is the first of the month, and a year alone is January 1st</li>
 	 * <li>a missing year, month or day comes from today's date, according to the clock, in the datetime's time zone</li>
@@ -252,31 +271,23 @@ final class DateTimeFields {
 			throw new ParseFailure("No date or time found");
 		}
 
-		if (isMonthSet() && !isDaySet()) {
-			day = 1;
-		}
-		if (isYearSet() && !isMonthSet() && !isDaySet()) {
-			month = 1;
-			day = 1;
-		}
-
 		final ZoneId resolvedZone = zone != null ? zone : defaultZone;
-		if (!isYearSet() || !isMonthSet() || !isDaySet()) {
+		int fullYear;
+		int resolvedMonth;
+		int resolvedDay;
+		if (isYearSet() && (isMonthSet() || !isDaySet())) {
+			// a month without a day is the first of the month, and a year alone is January 1st
+			fullYear = year;
+			resolvedMonth = isMonthSet() ? month : 1;
+			resolvedDay = isDaySet() ? day : 1;
+		} else {
 			final LocalDate today = clock.instant().atZone(resolvedZone).toLocalDate();
-			if (!isYearSet()) {
-				year = today.getYear();
-				twoDigitYear = false;
-			}
-			if (!isMonthSet()) {
-				month = today.getMonthValue();
-			}
-			if (!isDaySet()) {
-				day = today.getDayOfMonth();
-			}
+			fullYear = isYearSet() ? year : today.getYear();
+			resolvedMonth = isMonthSet() ? month : today.getMonthValue();
+			resolvedDay = isDaySet() ? day : isMonthSet() ? 1 : today.getDayOfMonth();
 		}
 
-		int fullYear = year;
-		if (twoDigitYear) {
+		if (twoDigitYear && isYearSet()) {
 			fullYear = twoDigitYearStart - Math.floorMod(twoDigitYearStart, 100) + year;
 			if (fullYear < twoDigitYearStart) {
 				fullYear += 100;
@@ -285,9 +296,9 @@ final class DateTimeFields {
 
 		final LocalDate date;
 		try {
-			date = LocalDate.of(fullYear, month, day);
+			date = LocalDate.of(fullYear, resolvedMonth, resolvedDay);
 		} catch (DateTimeException e) {
-			throw new ParseFailure("Bad day " + day + " for month " + month + " of " + fullYear);
+			throw new ParseFailure("Bad day " + resolvedDay + " for month " + resolvedMonth + " of " + fullYear);
 		}
 		final LocalTime time = LocalTime.of(hour != null ? hour : 0, minute != null ? minute : 0, second != null ? second : 0, nano != null ? nano : 0);
 		return ZonedDateTime.of(date, time, resolvedZone);
