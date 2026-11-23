@@ -17,46 +17,35 @@ import java.util.regex.Pattern;
  * Month and weekday names: English names, and the names of a parser's locale, from the JDK's locale data.
  * <p>
  * Names are matched without case or accents, so <code>FEVRIER</code> is <code>février</code>, and a trailing period is ignored.
+ * A name matches if it is one of the language's names or abbreviations, or the first three or more letters of a full name, if they
+ * start only one month's names, like <code>SEPT</code>, or Finnish <code>TAMMIK</code> for <code>tammikuu</code>.
  * <ul>
- * <li>English: a name, or an abbreviation of one with at least three letters, like <code>MAR</code> or <code>SEPT.</code></li>
- * <li>Another language: a name or abbreviation from the locale data, in the forms used alone and in a date, like <code>März</code>,
- * <code>Mär</code> or Russian <code>марта</code>, or the first three or more letters of a full name, if they start only one month's names.
- * Abbreviations in the locale data change between JDK versions, but are almost always the first letters of the name, so they are
- * found either way.</li>
+ * <li>English: the full names, which are the same on every JDK, and their abbreviations, which are their first letters.
+ * A plural weekday, like <code>MONDAYS</code>, is a weekday too.</li>
+ * <li>Another language: the names and abbreviations in the locale data, in the forms used alone and in a date, like <code>März</code>,
+ * <code>Mär</code> or Russian <code>марта</code>.  Abbreviations in the locale data change between JDK versions, but are almost always the
+ * first letters of the name, so they are found either way.</li>
  * </ul>
- * Names that contain digits or spaces, like Japanese <code>3月</code>, can't be found in a datetime string, and are left out.
- * Thread-safe.
+ * The locale's names are looked up first.  Names that contain digits or spaces, like Japanese <code>3月</code>, can't be found in a
+ * datetime string, and are left out.  Thread-safe.
  */
 final class DateNames {
+
+	private static final TextStyle[] STYLES = {TextStyle.FULL, TextStyle.FULL_STANDALONE, TextStyle.SHORT, TextStyle.SHORT_STANDALONE};
+	private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}+");
+	private static final int MIN_PREFIX_LENGTH = 3;
+
+	private static final Names ENGLISH_NAMES = englishNames();
 
 	/**
 	 * English names only.
 	 */
 	static final DateNames ENGLISH = new DateNames(Locale.ENGLISH);
 
-	private static final List<String> ENGLISH_WEEKDAYS = List.of("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
-	private static final List<String> ENGLISH_MONTHS = List.of("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST",
-		"SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER");
-	private static final TextStyle[] STYLES = {TextStyle.FULL, TextStyle.FULL_STANDALONE, TextStyle.SHORT, TextStyle.SHORT_STANDALONE};
-	private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}+");
-	private static final int MIN_PREFIX_LENGTH = 3;
-
 	/**
-	 * The locale's month names and abbreviations, folded, and their month numbers.
+	 * The locale's names, which are empty for English.
 	 */
-	private final Map<String, Integer> months = new HashMap<>();
-	/**
-	 * The locale's full month names, folded, with their month numbers, to look up abbreviations by their first letters.
-	 */
-	private final List<Map.Entry<String, Integer>> fullMonths = new ArrayList<>();
-	/**
-	 * The locale's weekday names and abbreviations, folded.
-	 */
-	private final Set<String> weekdays = new HashSet<>();
-	/**
-	 * The locale's full weekday names, folded.
-	 */
-	private final List<String> fullWeekdays = new ArrayList<>();
+	private final Names localeNames;
 	/**
 	 * Is "am" a word in the locale's language, like German "am 5. März", meaning "on March 5th"?
 	 */
@@ -67,37 +56,39 @@ final class DateNames {
 	 */
 	DateNames(Locale locale) {
 		amIsAWord = locale.getLanguage().equals(Locale.GERMAN.getLanguage());
-		if (locale.getLanguage().equals(Locale.ENGLISH.getLanguage())) {
-			return;
+		localeNames = locale.getLanguage().equals(Locale.ENGLISH.getLanguage()) ? new Names(false) : localeNames(locale);
+	}
+
+	private static Names englishNames() {
+		final Names names = new Names(true);
+		final List<String> weekdays = List.of("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
+		final List<String> months = List.of("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER",
+			"NOVEMBER", "DECEMBER");
+		weekdays.forEach(name -> names.addWeekday(name, true));
+		for (int i = 0; i < months.size(); i++) {
+			names.addMonth(months.get(i), i + 1, true);
 		}
-		final Set<String> ambiguous = new HashSet<>();
-		for (Month month : Month.values()) {
-			for (TextStyle style : STYLES) {
+		return names.withoutAmbiguousMonths();
+	}
+
+	private static Names localeNames(Locale locale) {
+		final Names names = new Names(false);
+		for (TextStyle style : STYLES) {
+			final boolean full = style == TextStyle.FULL || style == TextStyle.FULL_STANDALONE;
+			for (Month month : Month.values()) {
 				final String name = name(month.getDisplayName(style, locale));
-				if (name == null) {
-					continue;
-				}
-				final Integer previous = months.putIfAbsent(name, month.getValue());
-				if (previous != null && previous != month.getValue()) {
-					ambiguous.add(name);
-				}
-				if (style == TextStyle.FULL || style == TextStyle.FULL_STANDALONE) {
-					fullMonths.add(Map.entry(name, month.getValue()));
+				if (name != null) {
+					names.addMonth(name, month.getValue(), full);
 				}
 			}
-		}
-		months.keySet().removeAll(ambiguous);
-		for (DayOfWeek day : DayOfWeek.values()) {
-			for (TextStyle style : STYLES) {
+			for (DayOfWeek day : DayOfWeek.values()) {
 				final String name = name(day.getDisplayName(style, locale));
 				if (name != null) {
-					weekdays.add(name);
-					if (style == TextStyle.FULL || style == TextStyle.FULL_STANDALONE) {
-						fullWeekdays.add(name);
-					}
+					names.addWeekday(name, full);
 				}
 			}
 		}
+		return names.withoutAmbiguousMonths();
 	}
 
 	/**
@@ -108,53 +99,19 @@ final class DateNames {
 	 */
 	Integer monthNumber(String token) {
 		final String name = fold(withoutPeriod(token));
-		if (!months.isEmpty()) {
-			final Integer month = months.get(name);
-			if (month != null) {
-				return month;
-			}
-			final Integer prefixMonth = monthStartingWith(name);
-			if (prefixMonth != null) {
-				return prefixMonth;
-			}
-		}
-		if (name.length() < MIN_PREFIX_LENGTH) {
-			return null;
-		}
-		for (int i = 0; i < ENGLISH_MONTHS.size(); i++) {
-			if (ENGLISH_MONTHS.get(i).startsWith(name)) {
-				return i + 1;
-			}
-		}
-		return null;
+		final Integer month = localeNames.monthNumber(name);
+		return month != null ? month : ENGLISH_NAMES.monthNumber(name);
 	}
 
 	/**
-	 * Is the token a weekday name or abbreviation?  In English, an abbreviation has at least three letters, like <code>WED</code>
-	 * or <code>THURS.</code>
+	 * Is the token a weekday name or abbreviation, like <code>WED</code> or <code>THURS.</code>?
 	 *
 	 * @param token upper case token
 	 * @return <code>true</code> if the token is a weekday name
 	 */
 	boolean isWeekdayName(String token) {
 		final String name = fold(withoutPeriod(token));
-		if (weekdays.contains(name)) {
-			return true;
-		}
-		if (name.length() < MIN_PREFIX_LENGTH) {
-			return false;
-		}
-		for (String weekday : fullWeekdays) {
-			if (weekday.startsWith(name)) {
-				return true;
-			}
-		}
-		for (String weekday : ENGLISH_WEEKDAYS) {
-			if (name.startsWith(weekday) || weekday.startsWith(name)) {
-				return true;
-			}
-		}
-		return false;
+		return localeNames.isWeekdayName(name) || ENGLISH_NAMES.isWeekdayName(name);
 	}
 
 	/**
@@ -164,11 +121,7 @@ final class DateNames {
 	 * @return <code>true</code> if the token could be more than one month
 	 */
 	boolean isAmbiguousMonth(String token) {
-		final String name = fold(withoutPeriod(token));
-		if (name.length() < MIN_PREFIX_LENGTH || months.containsKey(name)) {
-			return false;
-		}
-		return fullMonths.stream().filter(month -> month.getKey().startsWith(name)).map(Map.Entry::getValue).distinct().count() > 1;
+		return localeNames.isAmbiguousMonth(fold(withoutPeriod(token)));
 	}
 
 	/**
@@ -176,27 +129,6 @@ final class DateNames {
 	 */
 	boolean amIsAWord() {
 		return amIsAWord;
-	}
-
-	/**
-	 * Find the month whose full names start with the given letters, like <code>TAMMIK</code> for Finnish <code>tammikuu</code>.
-	 *
-	 * @return the month number, or <code>null</code> if no month's names, or more than one month's names, start with the letters
-	 */
-	private Integer monthStartingWith(String name) {
-		if (name.length() < MIN_PREFIX_LENGTH) {
-			return null;
-		}
-		Integer found = null;
-		for (Map.Entry<String, Integer> month : fullMonths) {
-			if (month.getKey().startsWith(name)) {
-				if (found != null && !found.equals(month.getValue())) {
-					return null;
-				}
-				found = month.getValue();
-			}
-		}
-		return found;
 	}
 
 	/**
@@ -231,5 +163,125 @@ final class DateNames {
 			}
 		}
 		return upperCase;
+	}
+
+	/**
+	 * One language's month and weekday names, folded, and the rules for matching them.
+	 */
+	private static final class Names {
+		/**
+		 * Month names and abbreviations, and their month numbers.
+		 */
+		private final Map<String, Integer> months = new HashMap<>();
+		/**
+		 * Full month names, with their month numbers, to look up abbreviations by their first letters.
+		 */
+		private final List<Map.Entry<String, Integer>> fullMonths = new ArrayList<>();
+		/**
+		 * Names that are more than one month's name or abbreviation.
+		 */
+		private final Set<String> ambiguousMonths = new HashSet<>();
+		/**
+		 * Weekday names and abbreviations.
+		 */
+		private final Set<String> weekdays = new HashSet<>();
+		/**
+		 * Full weekday names.
+		 */
+		private final List<String> fullWeekdays = new ArrayList<>();
+		/**
+		 * Is a word that starts with a full weekday name a weekday, like English <code>MONDAYS</code>?
+		 */
+		private final boolean plurals;
+
+		Names(boolean plurals) {
+			this.plurals = plurals;
+		}
+
+		void addMonth(String name, int month, boolean full) {
+			final Integer previous = months.putIfAbsent(name, month);
+			if (previous != null && previous != month) {
+				ambiguousMonths.add(name);
+			}
+			if (full) {
+				fullMonths.add(Map.entry(name, month));
+			}
+		}
+
+		void addWeekday(String name, boolean full) {
+			weekdays.add(name);
+			if (full) {
+				fullWeekdays.add(name);
+			}
+		}
+
+		/**
+		 * Drop the names that are more than one month's name, which can't be used.
+		 */
+		Names withoutAmbiguousMonths() {
+			months.keySet().removeAll(ambiguousMonths);
+			return this;
+		}
+
+		/**
+		 * @param name folded name
+		 * @return the month number of a name, an abbreviation, or the first letters of only one month's full names, or <code>null</code>
+		 */
+		Integer monthNumber(String name) {
+			final Integer month = months.get(name);
+			if (month != null || name.length() < MIN_PREFIX_LENGTH) {
+				return month;
+			}
+			Integer found = null;
+			for (Map.Entry<String, Integer> fullMonth : fullMonths) {
+				if (fullMonth.getKey().startsWith(name)) {
+					if (found != null && !found.equals(fullMonth.getValue())) {
+						return null;
+					}
+					found = fullMonth.getValue();
+				}
+			}
+			return found;
+		}
+
+		/**
+		 * @param name folded name
+		 * @return <code>true</code> if the name is a weekday name, an abbreviation, the first letters of a full name, or, in a language
+		 * with plurals, starts with a full name
+		 */
+		boolean isWeekdayName(String name) {
+			if (weekdays.contains(name)) {
+				return true;
+			}
+			if (name.length() < MIN_PREFIX_LENGTH) {
+				return false;
+			}
+			for (String weekday : fullWeekdays) {
+				if (weekday.startsWith(name) || (plurals && name.startsWith(weekday))) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * @param name folded name
+		 * @return <code>true</code> if the name isn't a month name, but is the first letters of more than one month's full names
+		 */
+		boolean isAmbiguousMonth(String name) {
+			if (name.length() < MIN_PREFIX_LENGTH || months.containsKey(name)) {
+				return false;
+			}
+			Integer found = null;
+			for (Map.Entry<String, Integer> month : fullMonths) {
+				if (month.getKey().startsWith(name)) {
+					if (found != null && !found.equals(month.getValue())) {
+						return true;
+					}
+					found = month.getValue();
+				}
+			}
+			return false;
+		}
 	}
 }
