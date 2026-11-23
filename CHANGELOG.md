@@ -24,6 +24,8 @@
 - Seconds since the epoch.
 - Month and weekday names in other languages: set the parser's `locale`, e.g. `Locale.FRENCH` for `mardi 5 mars 2024`.  English names are still read.  The names come from the JDK's locale data, and are matched without case or accents.  `1er` (French) and ordinal indicators, like `1º`, are ordinals.
 - Apache and nginx access log dates (`10/Oct/2000:13:55:36 -0700`), and Exif dates (`2024:03:05 19:02:13`).
+- Chinese, Japanese and Korean dates and times, in any locale: numbers with units, like `2024年3月5日`, `13時30分` or `2024년 3월 5일`, and AM or PM before the time, like `下午1:30` or `오후 1:30`.  Japanese era years, like `令和6年`, are rejected.
+- Excel's `A` and `P` for AM and PM after a time (`1:30 P`).
 - An offset wins over a time zone name, e.g. `-0500 (EST)` in email dates, and `GMT -7`.
 - `parseZoned` methods, which return a `ZonedDateTime` that keeps the region, like `America/Denver`, when the string names one.
 - `parseDetailed` methods, which return a `RosemaryParsedDateTime`: the datetime, which parts the string had (`hasYear()`, `hasMonth()`, `hasDay()`, `hasTime()` and `hasZone()`), and `isAmbiguous()`, which is true if month first, day first or year first would read the date differently, like `3/5`.

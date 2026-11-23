@@ -83,6 +83,14 @@ final class DateTimeFields {
 		return hour != null;
 	}
 
+	boolean isMinuteSet() {
+		return minute != null;
+	}
+
+	boolean isSecondSet() {
+		return second != null;
+	}
+
 	boolean isZoneSet() {
 		return zone != null;
 	}

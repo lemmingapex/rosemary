@@ -99,6 +99,25 @@ class ReadmeExamplesTest {
 		assertParses("2024-03-05T00:00Z", PARSER.toBuilder().locale(Locale.forLanguageTag("ru")).build().parse("5 марта 2024"));
 		assertParses("2024-02-05T00:00Z", french.parse("5 fevrier 2024"));
 		assertThrows(RosemaryDateTimeException.class, () -> french.parse("5 jui 2024"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("2024年3月5日"));
+		assertParses("2024-03-05T13:30Z", PARSER.parse("2024/3/5 下午1:30"));
+		assertParses("2024-06-15T13:30Z", PARSER.parse("13時30分"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("2024년 3월 5일"));
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("令和6年3月5日"));
+	}
+
+	@Test
+	void spreadsheets() {
+		assertParses("2024-03-05T19:02Z", PARSER.parse("3/5/2024 19:02"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("5-Mar-24"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("Tuesday, March 5, 2024"));
+		assertParses("2024-06-15T19:02:13Z", PARSER.parse("7:02:13 PM"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("05.03.2024", RosemaryDateOrder.DD_MM_YY));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("2024年3月5日"));
+		assertParses("2045-03-05T00:00Z", PARSER.parse("3/5/45"));
+		assertParses("1945-03-05T00:00Z", PARSER.toBuilder().twoDigitYearStart(1930).build().parse("3/5/45"));
+		assertParses("2024-03-24T00:00Z", PARSER.parse("Mar-24"));
+		assertParses("2045-03-01T00:00Z", PARSER.parse("Mar-45"));
 	}
 
 	@Test

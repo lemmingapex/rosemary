@@ -28,6 +28,11 @@ final class PatternFreeParser {
 	private static final Pattern ORDINAL_INDICATOR = Pattern.compile("(\\d{1,2})(ER|RE|º|ª)");
 
 	/**
+	 * A number with a unit, in Chinese, Japanese or Korean, like 2024年, 3月, 5日 or 30분.
+	 */
+	private static final Pattern NUMBER_WITH_UNIT = Pattern.compile("(\\d{1,4})([" + Tokenizer.UNITS + "])");
+
+	/**
 	 * A number, with an optional sign.
 	 */
 	private static final Pattern NUMBER = Pattern.compile("[+-]?\\d+");
@@ -88,13 +93,15 @@ final class PatternFreeParser {
 			final String next = i + 1 < tokens.size() ? tokens.get(i + 1).text() : "";
 			try {
 				if (NUMBER.matcher(token).matches()) {
-					if (token.length() <= 2 && meridian(next) != null && !isDayBeforeMeridian(text, tokens, i, fields)) {
+					if (token.length() <= 2 && meridian(next) != null && !isDayBeforeMeridian(text, tokens, i, fields) && !isMeridianBeforeTime(tokens, i + 1)) {
 						// an hour followed by AM or PM, like 7 pm
 						parseTime(token + meridian(next), fields);
 						i++;
 					} else {
 						parseNumericToken(token, loneNumber, fields);
 					}
+				} else if (isLetterMeridian(tokens, i)) {
+					fields.applyMeridianToHour(token.equals("P"));
 				} else if (!weekdays.contains(i) && !isWordAm(tokens, i)) {
 					// weekday names don't change the date
 					if (meridian(token) != null) {
@@ -153,6 +160,22 @@ final class PatternFreeParser {
 	}
 
 	/**
+	 * Is the token A or P right after a time, like <code>1:30 P</code>, as Excel writes AM and PM with the format <code>h:mm A/P</code>?
+	 */
+	private static boolean isLetterMeridian(List<Tokenizer.Token> tokens, int index) {
+		final String token = tokens.get(index).text();
+		return (token.equals("A") || token.equals("P")) && index > 0 && tokens.get(index - 1).text().indexOf(':') > 0 && isTime(tokens.get(index - 1).text());
+	}
+
+	/**
+	 * Is the AM or PM at this position followed by a time, like 오후 in <code>2024. 3. 5. 오후 1:30</code>?  Then it belongs to that time,
+	 * and the number before it isn't an hour.
+	 */
+	private static boolean isMeridianBeforeTime(List<Tokenizer.Token> tokens, int index) {
+		return index + 1 < tokens.size() && tokens.get(index + 1).text().indexOf(':') > 0 && isTime(tokens.get(index + 1).text());
+	}
+
+	/**
 	 * Remove the period from a number followed by a period, like <code>"5."</code> in "5. March 2008".
 	 */
 	private static String withoutNumberPeriod(String token) {
@@ -195,11 +218,15 @@ final class PatternFreeParser {
 	}
 
 	/**
-	 * @return <code>"AM"</code> or <code>"PM"</code> if the token is AM, PM, A.M. or P.M., or <code>null</code> otherwise
+	 * @return <code>"AM"</code> or <code>"PM"</code> if the token is AM, PM, A.M. or P.M., or AM or PM in Chinese, Japanese or Korean,
+	 * or <code>null</code> otherwise
 	 */
 	private static String meridian(String token) {
 		final String withoutPeriods = token.replace(".", "");
-		return withoutPeriods.equals("AM") || withoutPeriods.equals("PM") ? withoutPeriods : null;
+		if (withoutPeriods.equals("AM") || withoutPeriods.equals("PM")) {
+			return withoutPeriods;
+		}
+		return token.length() == 2 && token.charAt(0) > 0x7F ? Tokenizer.CJK_MERIDIANS.get(token) : null;
 	}
 
 	/**
@@ -365,6 +392,16 @@ final class PatternFreeParser {
 	 * Other words are ignored, but other tokens with digits are rejected, so that part of a date or time isn't lost.
 	 */
 	private void parseNonNumericToken(String token, DateTimeFields fields) throws ParseFailure {
+		// a number with a unit, like 2024年 or 30분
+		final char last = token.charAt(token.length() - 1);
+		if (last > 0x7F && Tokenizer.UNITS.indexOf(last) >= 0) {
+			final Matcher withUnit = NUMBER_WITH_UNIT.matcher(token);
+			if (withUnit.matches()) {
+				parseNumberWithUnit(withUnit.group(1), withUnit.group(2).charAt(0), fields);
+				return;
+			}
+		}
+
 		// time zone offset, like -05:00 or GMT+5
 		if (isOffset(token)) {
 			parseTimeZoneOffset(token, fields);
@@ -454,6 +491,58 @@ final class PatternFreeParser {
 			throw new ParseFailure("Unrecognized " + token);
 		}
 		// otherwise ignore the word, e.g. "of", "at" or "the"
+	}
+
+	/**
+	 * Use a number with a Chinese, Japanese or Korean unit, like 2024年, 3月, 5日, 13時, 30分 or 55秒.  The unit says which field it is,
+	 * so the date order isn't needed.
+	 */
+	private static void parseNumberWithUnit(String number, char unit, DateTimeFields fields) throws ParseFailure {
+		final int value = Integer.parseInt(number);
+		switch (unit) {
+			case '年', '년' -> {
+				if (fields.isYearSet()) {
+					throw new ParseFailure("Two years");
+				}
+				fields.setYear(value, number.length() <= 2);
+			}
+			case '月', '월' -> {
+				if (fields.isMonthSet()) {
+					throw new ParseFailure("Two months");
+				}
+				fields.setMonth(value);
+			}
+			case '日', '일' -> {
+				if (fields.isDaySet()) {
+					throw new ParseFailure("Two days");
+				}
+				fields.setDay(value);
+			}
+			case '时', '時', '시' -> {
+				if (fields.isHourSet()) {
+					throw new ParseFailure("Two times");
+				}
+				fields.setHour(value);
+			}
+			case '分', '분' -> {
+				if (!fields.isHourSet()) {
+					throw new ParseFailure("Minutes without an hour");
+				}
+				if (fields.isMinuteSet()) {
+					throw new ParseFailure("Two times");
+				}
+				fields.setMinute(value);
+			}
+			default -> {
+				if (!fields.isMinuteSet()) {
+					throw new ParseFailure("Seconds without minutes");
+				}
+				if (fields.isSecondSet()) {
+					throw new ParseFailure("Two times");
+				}
+				fields.setSecond(value);
+			}
+		}
 	}
 
 	/**

@@ -128,12 +128,69 @@ class LanguagesTest {
 	}
 
 	/**
-	 * Japanese, like Chinese and Korean, writes months as numbers, like 3月, so a Japanese locale adds no names.
+	 * Japanese, like Chinese and Korean, writes months as numbers, like 3月, so a Japanese locale adds no names.  The numbers are read
+	 * by their units in any locale.
 	 */
 	@Test
 	void ignoresNamesWithDigits() {
-		assertThrows(RosemaryDateTimeException.class, () -> parser("ja").parse("2024年3月5日"));
+		assertEquals(OffsetDateTime.parse("2024-03-05T00:00Z"), parser("ja").parse("2024年3月5日"));
 		assertEquals(OffsetDateTime.parse("2024-03-05T00:00Z"), parser("ja").parse("March 5 2024"));
+	}
+
+	/**
+	 * Chinese, Japanese and Korean dates and times have a unit after each number, so the date order isn't needed, and AM or PM before the time.
+	 * Excel, Google Sheets and LibreOffice use these for long dates in those languages.  They are read in any locale.
+	 */
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', quoteCharacter = '`', textBlock = """
+		2024年3月5日                        | 2024-03-05T00:00Z
+		2024年3月                           | 2024-03-01T00:00Z
+		3月5日                              | 2024-03-05T00:00Z
+		24年3月5日                          | 2024-03-05T00:00Z
+		2024年03月05日                      | 2024-03-05T00:00Z
+		2024年3月5日星期二                   | 2024-03-05T00:00Z
+		2024年3月5日 火曜日                  | 2024-03-05T00:00Z
+		2024年3月5日(火)                    | 2024-03-05T00:00Z
+		2024年3月5日 13:30                  | 2024-03-05T13:30Z
+		2024年3月5日 13時30分                | 2024-03-05T13:30Z
+		13時30分55秒                        | 2024-06-15T13:30:55Z
+		13时30分                            | 2024-06-15T13:30Z
+		下午1时30分                          | 2024-06-15T13:30Z
+		2024年3月5日 下午1时30分55秒          | 2024-03-05T13:30:55Z
+		上午10:15                           | 2024-06-15T10:15Z
+		2024/3/5 下午 1:30                  | 2024-03-05T13:30Z
+		2024/3/5 午後 1:30                  | 2024-03-05T13:30Z
+		2024/3/5 午前 1:30                  | 2024-03-05T01:30Z
+		2024년 3월 5일                       | 2024-03-05T00:00Z
+		2024년 3월 5일 화요일                 | 2024-03-05T00:00Z
+		2024. 3. 5. 오후 1:30:55             | 2024-03-05T13:30:55Z
+		2024. 3. 5. 오전 9:05                | 2024-03-05T09:05Z
+		""")
+	void readsChineseJapaneseAndKoreanUnits(String text, OffsetDateTime expected) {
+		assertEquals(expected, PARSER.parse(text));
+		assertEquals(expected, PARSER.parse(text, RosemaryDateOrder.DD_MM_YY));
+	}
+
+	/**
+	 * A Japanese era year, like 令和6年 for 2024, isn't read as the year 6.
+	 */
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', textBlock = """
+		令和6年3月5日                 | 0
+		平成31年4月30日               | 0
+		2024年13月5日                 | 5
+		2024年3月5日 2024年            | 10
+		2024年3月3月                   | 7
+		2024年3月5日5日                | 9
+		30分                          | 0
+		13時30分30分                  | 6
+		13時 14時                     | 4
+		13:00 14時                    | 6
+		13時30分55秒 10秒             | 10
+		10秒                          | 0
+		""")
+	void rejectsUnitsThatCanNotBeUsed(String text, int index) {
+		assertEquals(index, assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse(text)).getErrorIndex());
 	}
 
 	@Test

@@ -3,6 +3,7 @@ package com.lemmingapex.rosemary;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Splits a datetime string into tokens, e.g. <code>"Mar 5, 2008 7:02 PM America/Denver"</code> into
@@ -19,6 +20,16 @@ final class Tokenizer {
 	record Token(String text, int start) {
 	}
 
+	/**
+	 * Units written after a number in Chinese, Japanese and Korean dates and times: year, month, day, hour, minute and second.
+	 */
+	static final String UNITS = "年月日时時分秒년월일시분초";
+
+	/**
+	 * AM and PM in Chinese, Japanese and Korean, which come before the time, like 下午1:30.  Each is two characters.
+	 */
+	static final Map<String, String> CJK_MERIDIANS = Map.of("上午", "AM", "下午", "PM", "午前", "AM", "午後", "PM", "오전", "AM", "오후", "PM");
+
 	private Tokenizer() {
 	}
 
@@ -33,6 +44,8 @@ final class Tokenizer {
 	 * <li>a period between digits, or between a digit and a letter, separates the parts of a date, as in 05.03.2008 or 05.Mar.2008,
 	 * but not the fraction of a second in a time</li>
 	 * <li>a comma after the seconds of a time and before a digit starts the fraction of a second, as in 07:02:10,123</li>
+	 * <li>in Chinese, Japanese and Korean, a unit after a number ends the token, as in 2024年3月5日 or 13時30分, and so does AM or PM
+	 * before a number, as in 下午1:30</li>
 	 * <li>tokens made only of dashes are dropped</li>
 	 * </ul>
 	 * Tokens are upper-cased after splitting, so their positions are positions in the original string, even if upper-casing changes
@@ -57,6 +70,16 @@ final class Tokenizer {
 			if (c == ',' && inTime && isDigit(next) && endsWithSeconds(token)) {
 				token.append('.');
 				continue;
+			}
+			if (c > 0x7F && isDigit(previous) && UNITS.indexOf(c) >= 0) {
+				token.append(c);
+				addToken(tokens, token, start);
+				start = i + 1;
+				continue;
+			}
+			if (isDigit(c) && token.length() == 2 && CJK_MERIDIANS.containsKey(token.toString())) {
+				addToken(tokens, token, start);
+				start = i;
 			}
 
 			final boolean separator = switch (c) {

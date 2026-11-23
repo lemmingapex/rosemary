@@ -103,6 +103,51 @@ Tuesday, 05-Mar-2024 19:02:13 MST                                   | 2024-03-05
 05-Mar-24                                                           | 2024-03-05T00:00Z
 Mar 5 2024                                                          | 2024-03-05T00:00Z
 24/03/05                                                            | 2024-03-05T00:00Z | YY_MM_DD
+# Excel, en-US: the built-in date and time formats, and the Format Cells lists
+3/5/2024 19:02                                                      | 2024-03-05T19:02Z
+3/5/2024 19:02:13                                                   | 2024-03-05T19:02:13Z
+3/5/2024 7:02:13 PM                                                 | 2024-03-05T19:02:13Z
+3/5/24 7:02 PM                                                      | 2024-03-05T19:02Z
+Tuesday, March 5, 2024                                              | 2024-03-05T00:00Z
+5-Mar                                                               | 2024-03-05T00:00Z
+5-Mar-24                                                            | 2024-03-05T00:00Z
+7:02:13 PM                                                          | 2024-06-15T19:02:13Z
+19:02                                                               | 2024-06-15T19:02Z
+19:02:13                                                            | 2024-06-15T19:02:13Z
+7:02 P                                                              | 2024-06-15T19:02Z
+# Excel's mmm-yy format writes March 2024 as Mar-24, which Excel itself reads back as March 24th, as Rosemary does
+Mar-24                                                              | 2024-03-24T00:00Z
+Mar-45                                                              | 2045-03-01T00:00Z
+# Google Sheets, LibreOffice Calc and Numbers, en-US
+Mar 5, 2024                                                         | 2024-03-05T00:00Z
+Tue, Mar 5, 2024                                                    | 2024-03-05T00:00Z
+Tuesday, March 5, 2024 at 7:02:13 PM                                | 2024-03-05T19:02:13Z
+Mar 5, 24                                                           | 2024-03-05T00:00Z
+Tue, Mar 5, 24                                                      | 2024-03-05T00:00Z
+Tue 03/05/24                                                        | 2024-03-05T00:00Z
+03/05/24 07:02 PM                                                   | 2024-03-05T19:02Z
+Mar 5, 2024 7:02 PM                                                 | 2024-03-05T19:02Z
+# Spreadsheet defaults in other countries
+05/03/24                                                            | 2024-03-05T00:00Z | DD_MM_YY
+Tuesday, 5 March 2024                                               | 2024-03-05T00:00Z | DD_MM_YY
+05-03-2024                                                          | 2024-03-05T00:00Z | DD_MM_YY
+5-3-2024                                                            | 2024-03-05T00:00Z | DD_MM_YY
+5.3.2024                                                            | 2024-03-05T00:00Z | DD_MM_YY
+5. 3. 2024 19:02                                                    | 2024-03-05T19:02Z | DD_MM_YY
+2024. 03. 05.                                                       | 2024-03-05T00:00Z
+2024.03.05. 19:02                                                   | 2024-03-05T19:02Z
+2024/3/5                                                            | 2024-03-05T00:00Z
+2024/3/5 19:02:13                                                   | 2024-03-05T19:02:13Z
+2024年3月5日                                                        | 2024-03-05T00:00Z
+2024年3月5日星期二                                                  | 2024-03-05T00:00Z
+2024年3月5日 19:02                                                  | 2024-03-05T19:02Z
+2024/3/5 下午 7:02:13                                               | 2024-03-05T19:02:13Z
+19時02分13秒                                                        | 2024-06-15T19:02:13Z
+2024. 3. 5. 오후 7:02:13                                            | 2024-03-05T19:02:13Z
+2024년 3월 5일 화요일                                               | 2024-03-05T00:00Z
+# A date cell's serial number of days is rejected, since a number like 45356 could be anything
+45356                                                               | error
+45356.5                                                             | error
 
 # Written by people
 Tuesday, March 5, 2024 at 7:02 PM                                   | 2024-03-05T19:02Z

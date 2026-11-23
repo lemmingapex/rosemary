@@ -221,6 +221,40 @@ class RoundTripTest {
 			new Format("MMMM d'th', uuuu, with the day as an ordinal", RoundTripTest::ordinalDate, Precision.DAY, Zones.NONE,
 				FOUR_DIGIT_YEARS[0], FOUR_DIGIT_YEARS[1], mdy, false, Locale.ENGLISH),
 
+			// spreadsheets' date and time formats: Excel, Google Sheets, LibreOffice Calc and Numbers, in the US
+			pattern("M/d/uuuu", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("M/d/uuuu H:mm", Precision.MINUTE, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("M/d/uuuu H:mm:ss", Precision.SECOND, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("M/d/uuuu h:mm:ss a", Precision.SECOND, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("M/d", Precision.DAY, Zones.NONE, THIS_YEAR, mdy),
+			pattern("EEEE, MMMM d, uuuu", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("d-MMM", Precision.DAY, Zones.NONE, THIS_YEAR, mdy),
+			pattern("d-MMM-yy", Precision.DAY, Zones.NONE, TWO_DIGIT_YEARS, mdy),
+			pattern("d-MMM-uuuu", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("MMM d, yy", Precision.DAY, Zones.NONE, TWO_DIGIT_YEARS, mdy),
+			pattern("EEE, MMM d, yy", Precision.DAY, Zones.NONE, TWO_DIGIT_YEARS, mdy),
+			pattern("EEE MM/dd/yy", Precision.DAY, Zones.NONE, TWO_DIGIT_YEARS, mdy),
+			pattern("MM/dd/yy hh:mm a", Precision.MINUTE, Zones.NONE, TWO_DIGIT_YEARS, mdy),
+			pattern("EEEE, MMMM d, uuuu 'at' h:mm:ss a", Precision.SECOND, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			time("H:mm:ss", Precision.SECOND),
+			time("h:mm:ss a", Precision.SECOND),
+
+			// spreadsheets in other countries
+			pattern("dd/MM/yy", Precision.DAY, Zones.NONE, TWO_DIGIT_YEARS, dmy),
+			pattern("EEEE, d MMMM uuuu", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, dmy),
+			pattern("d. M. uuuu H:mm", Precision.MINUTE, Zones.NONE, FOUR_DIGIT_YEARS, dmy),
+			pattern("d-M-uuuu", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, dmy),
+			pattern("uuuu. MM. dd.", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("uuuu/M/d H:mm:ss", Precision.SECOND, Zones.NONE, FOUR_DIGIT_YEARS, mdy),
+			pattern("uuuu年M月d日", Precision.DAY, Zones.NONE, FOUR_DIGIT_YEARS, dmy),
+			pattern("uuuu年M月d日 H時mm分ss秒", Precision.SECOND, Zones.NONE, FOUR_DIGIT_YEARS, dmy),
+			written("uuuu年M月d日EEEE", Precision.DAY, Locale.CHINESE),
+			written("uuuu/M/d ah:mm:ss", Precision.SECOND, Locale.CHINESE),
+			written("uuuu年M月d日(E)", Precision.DAY, Locale.JAPANESE),
+			written("uuuu/M/d a h:mm", Precision.MINUTE, Locale.JAPANESE),
+			written("uuuu년 M월 d일 EEEE", Precision.DAY, Locale.KOREAN),
+			written("uuuu. M. d. a h:mm:ss", Precision.SECOND, Locale.KOREAN),
+
 			// times only, which are today
 			time("h:mm a", Precision.MINUTE),
 			time("h a", Precision.MINUTE),
@@ -360,6 +394,15 @@ class RoundTripTest {
 	private static Format pattern(String pattern, Precision precision, Zones zones, int[] years, RosemaryDateOrder dateOrder) {
 		final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, Locale.US);
 		return new Format(pattern, formatter::format, precision, zones, years[0], years[1], dateOrder, false, Locale.ENGLISH);
+	}
+
+	/**
+	 * A format written in a language whose names, like 下午 for PM, are read in any locale, so the parser's locale is English.
+	 */
+	private static Format written(String pattern, Precision precision, Locale locale) {
+		final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, locale);
+		return new Format(locale.toLanguageTag() + ": " + pattern, formatter::format, precision, Zones.NONE, FOUR_DIGIT_YEARS[0], FOUR_DIGIT_YEARS[1],
+			RosemaryDateOrder.MM_DD_YY, false, Locale.ENGLISH);
 	}
 
 	private static Format time(String pattern, Precision precision) {

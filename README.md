@@ -33,7 +33,7 @@ rosemary.parse("1709596800");                                            // 2024
 rosemary.parse("1204675245123");                                         // 2008-03-05T00:00:45.123Z - milliseconds since the epoch
 rosemary.parse("01-18-21 03:00 America/New_York", "MM-dd-yy HH:mm VV");  // 2021-01-18T03:00-05:00 - optional patterns
 ```
-For more, [corpus.txt](lib/src/test/resources/com/lemmingapex/rosemary/corpus.txt) has over 100 datetimes as real programs and people write them, from email and HTTP headers to logs, databases and spreadsheets, and how Rosemary reads each one.
+For more, [corpus.txt](lib/src/test/resources/com/lemmingapex/rosemary/corpus.txt) has over 140 datetimes as real programs and people write them, from email and HTTP headers to logs, databases and spreadsheets, and how Rosemary reads each one.
 
 ## Goals
 * Pattern-free (optional patterns supported)
@@ -103,11 +103,20 @@ french.parse("mardi 5 mars 2024 10:00");        // 2024-03-05T10:00Z
 french.parse("1er févr. 2024");                  // 2024-02-01T00:00Z
 french.parse("Tue, 05 Mar 2024 10:00:00 GMT");   // 2024-03-05T10:00Z - English names still work, e.g. in HTTP and email dates
 ```
-The names come from the JDK's locale data, so any language that writes month names as words works, like German, Spanish, Russian, Polish or Greek, including the forms used in a date, like Russian `5 марта 2024`.  Names are matched without case or accents, so `fevrier` is `février`, and an abbreviation can be the first three or more letters of a name, like `sept`.  Letters that start more than one month's name, like French `jui` for `juin` and `juillet`, are rejected.  Languages that write months as numbers, like Chinese, Japanese and Korean, aren't supported yet.
+The names come from the JDK's locale data, so any language that writes month names as words works, like German, Spanish, Russian, Polish or Greek, including the forms used in a date, like Russian `5 марта 2024`.  Names are matched without case or accents, so `fevrier` is `février`, and an abbreviation can be the first three or more letters of a name, like `sept`.  Letters that start more than one month's name, like French `jui` for `juin` and `juillet`, are rejected.
+
+Chinese, Japanese and Korean dates and times are read in any locale, like `2024年3月5日`, `2024/3/5 下午1:30`, `13時30分` or `2024년 3월 5일`.  The unit after each number says what it is, so the date order isn't needed.  Japanese era years, like `令和6年`, are rejected.
 
 A full JDK has the names of every language.  A smaller runtime made with `jlink` has only English names unless it includes the `jdk.localedata` module, e.g. with `--add-modules jdk.localedata`.
 
 The locale doesn't change the date order.  For dates like `05.03.2024`, set `RosemaryDateOrder.DD_MM_YY` too.
+
+### Spreadsheets
+Rosemary reads the date and time formats that Excel, Google Sheets, LibreOffice Calc and Numbers offer, as they appear in cells and CSV exports, like `3/5/2024 19:02`, `5-Mar-24`, `Tuesday, March 5, 2024`, `7:02:13 PM`, `05.03.2024` or `2024年3月5日`.  [corpus.txt](lib/src/test/resources/com/lemmingapex/rosemary/corpus.txt) lists them.  Three things differ between spreadsheets and Rosemary's defaults:
+* Spreadsheets in most countries write the day first.  Set the date order to match, like `RosemaryDateOrder.DD_MM_YY`.
+* Excel and LibreOffice put two-digit years in 1930-2029 by default, so `3/5/45` is 1945.  Rosemary's default is 1970-2069.  Use `twoDigitYearStart(1930)` to match.
+* Excel's month-and-year format writes March 2024 as `Mar-24`, which Excel itself reads back as March 24th, and so does Rosemary.  `Mar-45` is March 2045.
+* A date cell formatted as General, or read without its format, is a serial number of days, like `45356` for March 5th, 2024, or `45356.5` for noon that day.  Rosemary rejects these, since a number like `45356` could be anything.  Convert them before parsing: `LocalDate.of(1899, 12, 30).plusDays(45356)`, or from 1904-01-01 for files from Excel for Mac before 2011.
 
 ### Time zones
 Rosemary understands:
@@ -235,7 +244,7 @@ A pattern, or a list of patterns to try:
 * Apache Commons Lang `DateUtils.parseDate` and `parseDateStrictly` - Try a list of patterns in order.
 
 ## Possible Future Work
-* Dates in languages that write months as numbers, like `2024年3月5日`, and times like `10h30`
+* Times like `10h30`, and Japanese era years, like `令和6年`
 * More natural language, e.g. `the day after tomorrow` or `next Tuesday`
 
 ## License

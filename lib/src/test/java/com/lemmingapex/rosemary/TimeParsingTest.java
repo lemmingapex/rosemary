@@ -50,6 +50,12 @@ class TimeParsingTest {
 		3/5/2024 1:00 am       | 2024-03-05T01:00:00Z
 		3/5/2024 1:00 pm       | 2024-03-05T13:00:00Z
 		3/5/2024 13:00 PM      | 2024-03-05T13:00:00Z
+		3/5/2024 1:30 P        | 2024-03-05T13:30:00Z
+		3/5/2024 1:30 A        | 2024-03-05T01:30:00Z
+		3/5/2024 12:30 A       | 2024-03-05T00:30:00Z
+		3/5/2024 1:30:55 p     | 2024-03-05T13:30:55Z
+		7:02 P PST             | 2024-06-15T19:02:00-07:00
+		Plan A at 1:30         | 2024-06-15T01:30:00Z
 		""")
 	void parsesAmAndPm(String text, OffsetDateTime expected) {
 		assertEquals(expected, PARSER.parse(text));
