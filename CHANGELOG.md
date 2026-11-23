@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-11-23)
 
 2.0 has a new, smaller API built on `java.time`.
 
