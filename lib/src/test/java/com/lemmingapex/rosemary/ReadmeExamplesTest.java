@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Locale;
 
 import static com.lemmingapex.rosemary.TestParsers.PARSER;
@@ -53,6 +54,7 @@ class ReadmeExamplesTest {
 		assertParses("2001-02-03T00:00Z", rosemary.parse("01/02/03", RosemaryDateOrder.YY_MM_DD));
 		assertParses("2024-12-31T00:00Z", rosemary.parse("31/12/2024"));
 		assertParses("2024-12-05T00:00Z", rosemary.parse("2024-12-05", RosemaryDateOrder.DD_MM_YY));
+		assertParses("2024-05-12T00:00Z", rosemary.parse("2024-12-05", RosemaryDateOrder.YY_DD_MM));
 	}
 
 	@Test
@@ -76,6 +78,16 @@ class ReadmeExamplesTest {
 		assertParses("2024-03-05T10:00Z", french.parse("Tue, 05 Mar 2024 10:00:00 GMT"));
 		assertParses("2024-03-05T00:00Z", PARSER.toBuilder().locale(Locale.forLanguageTag("ru")).build().parse("5 марта 2024"));
 		assertParses("2024-02-05T00:00Z", french.parse("5 fevrier 2024"));
+		assertThrows(RosemaryDateTimeException.class, () -> french.parse("5 jui 2024"));
+	}
+
+	@Test
+	void patterns() {
+		assertParses("2021-01-18T03:00-05:00", PARSER.parse("01-18-21 03:00 America/New_York", "MM-dd-yy HH:mm VV"));
+		assertParses("2025-01-03T00:00Z", PARSER.parse("25-01-03", List.of("yyyy-MM HH:mm", "yy-MM-dd")));
+		assertThrows(RosemaryDateTimeException.class, () -> PARSER.parse("2021-02-31", "yyyy-MM-dd"));
+		assertParses("2024-03-05T00:00Z", PARSER.parse("03-05", "MM-dd"));
+		assertParses("2024-03-01T00:00Z", PARSER.parse("2024-03", "yyyy-MM"));
 	}
 
 	@Test

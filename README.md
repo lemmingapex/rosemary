@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="rosemary.svg" alt="rosemary logo" width="230"/>
+    <img src="rosemary.svg" alt="Rosemary logo" width="230"/>
 </p>
 <h3 align="center">Rosemary</h3>
 <p align="center">
@@ -33,11 +33,13 @@ rosemary.parse("1709596800");                                            // 2024
 rosemary.parse("1204675245123");                                         // 2008-03-05T00:00:45.123Z - milliseconds since the epoch
 rosemary.parse("01-18-21 03:00 America/New_York", "MM-dd-yy HH:mm VV");  // 2021-01-18T03:00-05:00 - optional patterns
 ```
+For more, [corpus.txt](lib/src/test/resources/com/lemmingapex/rosemary/corpus.txt) has over 100 datetimes as real programs and people write them, from email and HTTP headers to logs, databases and spreadsheets, and how Rosemary reads each one.
 
 ## Goals
 * Pattern-free (optional patterns supported)
 * Great time zone support
-* Fast: about half a microsecond per datetime, similar to `java.time.format.DateTimeFormatter` with a known pattern
+* Month and weekday names in many languages
+* Fast: about a microsecond per datetime.  `java.time.format.DateTimeFormatter`, given the pattern, takes about 0.4 microseconds.
 * Simple API
 
 ## Get Rosemary
@@ -66,8 +68,8 @@ Rosemary is a Java module, `com.lemmingapex.rosemary`.
 * A datetime without a time zone is in UTC.
 * A missing time is midnight.  A missing year, month or day comes from today's date: `"6/19"` is June 19th of this year, and `"7pm"` is today.  Today's date is taken in the datetime's time zone.
 * A month without a day is the first of the month, and a year alone is January 1st.
-* Month and weekday names are in English.  [Other languages](#languages) can be added.
-* Words that aren't part of a datetime, like `of`, `at` or `the`, are ignored.  Weekday names are ignored too.
+* Month and weekday names are read in English.  [Other languages](#languages) can be read too.
+* Words that aren't part of a datetime, like `of`, `at` or `the`, are ignored.  Weekday names are ignored too, and aren't checked against the date.
 * `parse(null)` returns `null`.
 
 ### Ambiguous dates
@@ -77,7 +79,7 @@ rosemary.parse("01/02/03");                              // 2003-01-02T00:00Z
 rosemary.parse("01/02/03", RosemaryDateOrder.DD_MM_YY);  // 2003-02-01T00:00Z
 rosemary.parse("01/02/03", RosemaryDateOrder.YY_MM_DD);  // 2001-02-03T00:00Z
 ```
-The order is only used when the values can't be told apart.  `31/12/2024` is December 31st in any order, and a date that starts with a full year, like `2024-12-05`, is year, month, day, unless the order puts the year first.
+The order is only used when the values can't be told apart.  `31/12/2024` is December 31st in any order, and a date that starts with a full year, like `2024-12-05`, is year, month, day, unless the order starts with the year: `YY_DD_MM` reads it as May 12th.
 
 ### Languages
 Month and weekday names are always read in English.  To read them in another language too, set the parser's locale:
@@ -87,7 +89,9 @@ french.parse("mardi 5 mars 2024 10:00");        // 2024-03-05T10:00Z
 french.parse("1er févr. 2024");                  // 2024-02-01T00:00Z
 french.parse("Tue, 05 Mar 2024 10:00:00 GMT");   // 2024-03-05T10:00Z - English names still work, e.g. in HTTP and email dates
 ```
-The names come from the JDK's locale data, so any language that writes month names as words works, like German, Spanish, Russian, Polish or Greek, including the forms used in a date, like Russian `5 марта 2024`.  Names are matched without case or accents, so `fevrier` is `février`, and an abbreviation can be the first three or more letters of a name, like `sept`, if they start only one month's name.  Languages that write months as numbers, like Chinese, Japanese and Korean, aren't supported yet.
+The names come from the JDK's locale data, so any language that writes month names as words works, like German, Spanish, Russian, Polish or Greek, including the forms used in a date, like Russian `5 марта 2024`.  Names are matched without case or accents, so `fevrier` is `février`, and an abbreviation can be the first three or more letters of a name, like `sept`.  Letters that start more than one month's name, like French `jui` for `juin` and `juillet`, are rejected.  Languages that write months as numbers, like Chinese, Japanese and Korean, aren't supported yet.
+
+A full JDK has the names of every language.  A smaller runtime made with `jlink` has only English names unless it includes the `jdk.localedata` module, e.g. with `--add-modules jdk.localedata`.
 
 The locale doesn't change the date order.  For dates like `05.03.2024`, set `RosemaryDateOrder.DD_MM_YY` too.
 
@@ -141,7 +145,7 @@ A number by itself, or with only words like `at` or `UTC`, is read by its length
 
 Other numbers by themselves, like `12`, are too ambiguous and are rejected.  After a date, a number without a sign is a time, like `0702`, or an offset if there is already a time.
 
-Two-digit years, like `'08`, are 1970-2069 by default.
+Two-digit years, like `'08`, are 1970-2069 by default.  The builder's `twoDigitYearStart` changes the range.
 
 ### Patterns
 When the format is known, a [`DateTimeFormatter`](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/format/DateTimeFormatter.html) pattern can be given instead, or a list of patterns to try in order:
@@ -167,10 +171,10 @@ try {
 ### Configuration
 ```java
 RosemaryDateTimeParser parser = RosemaryDateTimeParser.builder()
-    .dateOrder(RosemaryDateOrder.DD_MM_YY)                                  // order of ambiguous dates
-    .defaultZone(ZoneId.of("Europe/London"))                               // zone when the string has none
+    .dateOrder(RosemaryDateOrder.DD_MM_YY)                                      // order of ambiguous dates
+    .defaultZone(ZoneId.of("Europe/London"))                                   // zone when the string has none
     .clock(Clock.fixed(Instant.parse("2030-03-01T00:00:00Z"), ZoneOffset.UTC)) // "today" for partial dates
-    .timeZoneAbbreviation("SGT", ZoneId.of("Asia/Singapore"))              // add or change an abbreviation
+    .timeZoneAbbreviation("SGT", ZoneId.of("Asia/Singapore"))                  // add or change an abbreviation
     .build();
 parser.parse("5/3 7:02 pm");      // 2030-03-05T19:02Z
 parser.parse("5/7 7:02 pm");      // 2030-07-05T19:02+01:00
@@ -207,7 +211,7 @@ Pattern-free parsing of many formats:
 * [dateparser](https://github.com/sisyphsu/dateparser) - Parses hundreds of formats with built-in, extensible regex rules.  Last release 1.0.11, September 2022.
 
 Natural language, like `next Tuesday` or `the day after tomorrow`:
-* [Natty](https://github.com/natty-parser/natty) - Community-maintained copy of the original, which was abandoned in 2017.  Last release January 2017.
+* [Natty](https://github.com/natty-parser/natty) - Community-maintained fork of the original, which was abandoned in 2017.  Last release 1.1.4, August 2026.
 * [jchronic](https://github.com/samtingleff/jchronic) - Port of Ruby's Chronic.  Published only as a snapshot, on Clojars.
 * [Hawking](https://github.com/zoho/hawking) - Finds dates in free text, including fiscal years and quarters.  GPL-3.0 licensed.
 * [SUTime](https://stanfordnlp.github.io/CoreNLP/sutime.html) - Finds and normalizes dates, times and durations in English text, as part of the Stanford CoreNLP toolkit.
@@ -217,7 +221,7 @@ A pattern, or a list of patterns to try:
 * Apache Commons Lang `DateUtils.parseDate` and `parseDateStrictly` - Try a list of patterns in order.
 
 ## Possible Future Work
-* Dates in languages that write months as numbers, like `2024年3月5日`, and times like `10h30` (help wanted)
+* Dates in languages that write months as numbers, like `2024年3月5日`, and times like `10h30`
 * More natural language, e.g. `the day after tomorrow` or `next Tuesday`
 
 ## License
